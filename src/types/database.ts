@@ -77,6 +77,7 @@ export type Database = {
           input_type: string | null
           normalised_idea: string | null
           original_input: string
+          revision_count: number | null
           source_url: string | null
           status: Database["public"]["Enums"]["job_status"] | null
           updated_at: string | null
@@ -91,6 +92,7 @@ export type Database = {
           input_type?: string | null
           normalised_idea?: string | null
           original_input: string
+          revision_count?: number | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           updated_at?: string | null
@@ -105,6 +107,7 @@ export type Database = {
           input_type?: string | null
           normalised_idea?: string | null
           original_input?: string
+          revision_count?: number | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           updated_at?: string | null

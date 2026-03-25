@@ -136,10 +136,10 @@ export default function ProjectDetailPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowRevisionModal(true)}
-                disabled={(job as any).revision_count >= 3}
+                disabled={(job.revision_count || 0) >= 3}
               >
                 <RefreshCcw size={14} className="mr-2" /> 
-                Regenerate ({(job as any).revision_count || 0}/3)
+                Regenerate ({job.revision_count || 0}/3)
               </Button>
             )}
             <span className={`text-xs font-bold px-3 py-1 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary-soft)] uppercase tracking-wider`}>
