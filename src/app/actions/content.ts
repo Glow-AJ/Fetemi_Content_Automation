@@ -48,6 +48,7 @@ export async function createJobAction(formData: {
           input_url: formData.inputType === 'url' ? formData.sourceUrl : null,
           user_id: user.id,
           use_email: formData.userEmail,
+          is_retry: false
         }),
       });
     } catch (err) {
@@ -230,7 +231,10 @@ export async function deleteJobAction(jobId: string) {
  */
 export async function retryIntakeAction(jobId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
+  if (!user) return { success: false, error: 'Unauthorized' };
+
   // 1. Get job data
   const { data: job, error: fetchError } = await supabase
     .from('content_jobs')
@@ -252,7 +256,7 @@ export async function retryIntakeAction(jobId: string) {
           input_text: job.input_type === 'idea' ? job.original_input : null,
           input_url: job.input_type === 'url' ? job.source_url : null,
           user_id: job.user_id,
-          use_email: true, // Default to true for recovery attempts
+          use_email: user.email, // Include the current user's email
           is_retry: true
         }),
       });
