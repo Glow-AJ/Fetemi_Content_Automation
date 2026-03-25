@@ -22,9 +22,11 @@ export async function createJobAction(formData: {
   if (!user) throw new Error('Unauthorized');
 
   // 1. Calculate Hash & Check for duplicates (last 7 days)
-  const inputHash = crypto.createHash('md5').update(formData.originalInput || formData.sourceUrl || '').digest('hex');
+  const inputHash = crypto.createHash('sha256').update(formData.originalInput || formData.sourceUrl || '').digest('hex');
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { type: urlType } = formData.inputType === 'url' ? validateUrl(formData.sourceUrl || '') : { type: null };
 
   const { data: existingJob } = await supabase
     .from('content_jobs')
@@ -39,6 +41,7 @@ export async function createJobAction(formData: {
     .insert({
       user_id: user.id,
       input_type: formData.inputType,
+      url_type: urlType,
       original_input: formData.originalInput,
       source_url: formData.sourceUrl || null,
       status: 'submitted',
@@ -58,8 +61,7 @@ export async function createJobAction(formData: {
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
-      const { type: urlType } = formData.inputType === 'url' ? validateUrl(formData.sourceUrl || '') : { type: null };
-      
+      // urlType is already calculated above
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -311,7 +313,7 @@ export async function retryIntakeAction(jobId: string) {
  */
 export async function checkDuplicateAction(input: string) {
   const supabase = await createClient();
-  const inputHash = crypto.createHash('md5').update(input).digest('hex');
+  const inputHash = crypto.createHash('sha256').update(input).digest('hex');
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   

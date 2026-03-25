@@ -83,6 +83,7 @@ export type Database = {
           source_url: string | null
           status: Database["public"]["Enums"]["job_status"] | null
           updated_at: string | null
+          url_type: string | null
           user_id: string
         }
         Insert: {
@@ -100,6 +101,7 @@ export type Database = {
           source_url?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           updated_at?: string | null
+          url_type?: string | null
           user_id: string
         }
         Update: {
@@ -117,6 +119,7 @@ export type Database = {
           source_url?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           updated_at?: string | null
+          url_type?: string | null
           user_id?: string
         }
         Relationships: []
