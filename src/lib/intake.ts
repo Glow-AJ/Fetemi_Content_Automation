@@ -152,6 +152,8 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
     supabase, userId, userEmail, inputType, topic, url, urlType,
   } = params;
 
+  console.log('[Intake] Inserting job:', { userId, inputType, originalInput: topic || url });
+
   // 1. Insert job into Supabase
   const { data: job, error: insertError } = await supabase
     .from('content_jobs')
@@ -166,7 +168,8 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
     .single();
 
   if (insertError || !job) {
-    console.error('[Intake] Job creation failed:', insertError?.message);
+    console.error('[Intake] Job creation failed error object:', insertError);
+    console.error('[Intake] Message:', insertError?.message);
     return {
       success: false,
       jobId: null,
@@ -174,7 +177,7 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
         what: 'Failed to create your content project.',
         why: insertError?.message?.includes('duplicate')
           ? 'A project with this information already exists.'
-          : 'There was a problem saving to the database. This is usually temporary.',
+          : `There was a problem saving to the database. Raw error: ${insertError?.message || 'unknown'}`,
         nextStep: 'Please try again. If the problem persists, contact support.',
       },
     };
@@ -196,6 +199,8 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
           user_id: userId,
           use_email: userEmail,
         }),
+      }).then((res) => {
+        console.log('[Intake] Webhook response status:', res.status);
       }).catch((err) => {
         // Log webhook failure but don't block the user
         console.error('[Intake] Webhook fire failed:', err.message);
