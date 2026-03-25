@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 import { User, Users, Globe, Lock, Mail, Plus, Trash2, RefreshCcw, Check, AlertCircle } from 'lucide-react';
 
-type Tab = 'profile' | 'team' | 'platforms';
+type Tab = 'profile' | 'team' | 'platforms' | 'subscribers';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -20,6 +20,7 @@ export default function SettingsPage() {
     { id: 'profile' as Tab, label: 'Profile', icon: User },
     { id: 'team' as Tab, label: 'Team', icon: Users },
     { id: 'platforms' as Tab, label: 'Platforms', icon: Globe },
+    { id: 'subscribers' as Tab, label: 'Subscribers', icon: Mail },
   ];
 
   const handleSave = () => {
@@ -164,6 +165,42 @@ export default function SettingsPage() {
                 <p className="text-xs text-[var(--color-text-secondary)] mt-1">Your LinkedIn API key expires in 14 days. We recommend re-authorizing to avoid disruption.</p>
                 <Button variant="outline" size="sm" className="mt-3">Re-authorize LinkedIn</Button>
               </div>
+            </div>
+          </Card>
+        </div>
+      )}
+      {/* Subscribers Tab */}
+      {activeTab === 'subscribers' && (
+        <div className="space-y-6">
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-[var(--color-text)]">Newsletter Subscribers</h3>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm"><Plus size={14} /> Add Manually</Button>
+                <Button variant="primary" size="sm">Upload CSV</Button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)]">
+                    <th className="text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide py-3">Email</th>
+                    <th className="text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide py-3">Name</th>
+                    <th className="text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide py-3 hidden sm:table-cell">Subscribed Date</th>
+                    <th className="text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide py-3">Status</th>
+                    <th className="py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-[var(--color-border)]">
+                    <td className="py-3 text-sm font-medium text-[var(--color-text)]">hello@example.com</td>
+                    <td className="py-3 text-sm text-[var(--color-text-secondary)]">John Doe</td>
+                    <td className="py-3 text-sm text-[var(--color-text-muted)] hidden sm:table-cell">Mar 24, 2026</td>
+                    <td className="py-3"><span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-600">Active</span></td>
+                    <td className="py-3 text-right"><Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700">Remove</Button></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>

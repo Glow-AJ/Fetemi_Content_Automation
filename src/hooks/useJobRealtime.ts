@@ -41,7 +41,7 @@ export function useJobRealtime(jobId: string | null): UseJobRealtimeReturn {
 
     try {
       const { data, error: fetchError } = await supabase
-        .from('jobs')
+        .from('content_jobs')
         .select('*')
         .eq('id', jobId)
         .single();
@@ -81,7 +81,7 @@ export function useJobRealtime(jobId: string | null): UseJobRealtimeReturn {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'jobs',
+          table: 'content_jobs',
           filter: `id=eq.${jobId}`,
         },
         (payload) => {

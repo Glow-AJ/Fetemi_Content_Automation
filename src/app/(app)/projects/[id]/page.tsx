@@ -108,13 +108,20 @@ export default function ProjectDetailPage() {
             { name: 'X (Twitter)', icon: Twitter, status: 'Pending' },
             { name: 'Email', icon: Mail, status: 'Pending' },
           ].map((p) => (
-            <div key={p.name} className="p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)]">
+            <div key={p.name} className="p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] flex flex-col h-full">
               <div className="flex items-center gap-2 mb-2">
                 <p.icon size={16} className="text-[var(--color-text-secondary)]" />
                 <span className="text-sm font-medium text-[var(--color-text)]">{p.name}</span>
               </div>
-              <p className="text-xs text-[var(--color-text-muted)]">Content will appear here after draft selection and adaptation.</p>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 mt-2 inline-block">{p.status}</span>
+              <p className="text-xs text-[var(--color-text-muted)] flex-grow">Content will appear here after draft selection and adaptation.</p>
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 inline-block">{p.status}</span>
+                {p.name === 'X (Twitter)' && (
+                  <Button variant="outline" size="sm" className="text-xs h-7 py-0 px-2 border-green-200 text-green-700 hover:bg-green-50">
+                    <Check size={12} className="mr-1" /> Mark as posted
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>

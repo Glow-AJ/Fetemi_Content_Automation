@@ -88,7 +88,7 @@ Raw errors go to a separate Supabase column for debugging only.
 
 ## How to work
 - Complete one concern fully before moving to the next
-- After each session, commit all work and update this file with what was 
+- After each session, commit all work and push to GitHub anytime you have made changes. Update this file with what was 
   built and any decisions made
 - Make implementation decisions autonomously — you are the expert
 - Ask only when a requirement is genuinely ambiguous

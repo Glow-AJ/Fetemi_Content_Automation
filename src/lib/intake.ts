@@ -154,7 +154,7 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
 
   // 1. Insert job into Supabase
   const { data: job, error: insertError } = await supabase
-    .from('jobs')
+    .from('content_jobs')
     .insert({
       user_id: userId,
       input_type: inputType,
@@ -204,7 +204,7 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
         console.error('[Intake] Webhook fire failed:', err.message);
         // Update the job with a note about the trigger failure
         supabase
-          .from('jobs')
+          .from('content_jobs')
           .update({
             current_phase_detail: 'Submitted but automation trigger failed. Please contact support.',
           })

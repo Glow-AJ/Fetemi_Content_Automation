@@ -43,22 +43,12 @@ export default function NewContentPage() {
   const [error, setError] = useState<StructuredError | null>(null);
   const [simpleError, setSimpleError] = useState<string | null>(null);
 
-  // URL classification (real-time feedback)
-  const [urlClassification, setUrlClassification] = useState<{
-    type: UrlType | null;
-    rejected: boolean;
-    rejectReason: string | null;
-  }>({ type: null, rejected: false, rejectReason: null });
-
-  // ─── URL Classification on Change ───────────────────────────
-
-  useEffect(() => {
+  // URL classification (real-time feedback - derived state)
+  const urlClassification = React.useMemo(() => {
     if (mode === 'url' && url) {
-      const result = classifyUrlQuick(url);
-      setUrlClassification(result);
-    } else {
-      setUrlClassification({ type: null, rejected: false, rejectReason: null });
+      return classifyUrlQuick(url);
     }
+    return { type: null, rejected: false, rejectReason: null };
   }, [url, mode]);
 
   // ─── Form Reset on Mode Switch ─────────────────────────────
