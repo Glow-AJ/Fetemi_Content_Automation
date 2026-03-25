@@ -209,3 +209,64 @@ export async function cancelScheduleAction(postId: string) {
 
   return { success: !error, error: error?.message };
 }
+
+/**
+ * Deletion - Securely delete job and cascading rows
+ */
+export async function deleteJobAction(jobId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('content_jobs').delete().eq('id', jobId);
+  
+  if (!error) {
+    revalidatePath('/dashboard');
+    revalidatePath('/projects');
+  }
+  
+  return { success: !error, error: error?.message };
+}
+
+/**
+ * Retry Intake - Re-trigger webhook for stuck jobs
+ */
+export async function retryIntakeAction(jobId: string) {
+  const supabase = await createClient();
+  
+  // 1. Get job data
+  const { data: job, error: fetchError } = await supabase
+    .from('content_jobs')
+    .select('*')
+    .eq('id', jobId)
+    .single();
+
+  if (fetchError || !job) return { success: false, error: 'Job not found' };
+
+  // 2. Fire n8n Intake Webhook
+  const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
+  if (webhookUrl && webhookUrl !== 'placeholder') {
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job_id: job.id,
+          input_text: job.input_type === 'idea' ? job.original_input : null,
+          input_url: job.input_type === 'url' ? job.source_url : null,
+          user_id: job.user_id,
+          use_email: true, // Default to true for recovery attempts
+          is_retry: true
+        }),
+      });
+      
+      // Reset status to submitted to show progress
+      await supabase.from('content_jobs').update({ status: 'submitted', error_message: null }).eq('id', jobId);
+      
+      revalidatePath(`/projects/${jobId}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[Action] Retry webhook failed:', err);
+      return { success: false, error: 'Failed to trigger automation retry.' };
+    }
+  }
+  
+  return { success: false, error: 'Intake webhook not configured.' };
+}

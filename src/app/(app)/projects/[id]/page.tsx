@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { 
   ArrowLeft, Check, Clock, FileText, Linkedin, 
   Twitter, Mail, Loader2, AlertCircle, Edit3, 
-  RefreshCcw, Send, Calendar, XCircle
+  RefreshCcw, Send, Calendar, XCircle, Trash2, RotateCw
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -17,7 +17,9 @@ import {
   updateDraftContentAction,
   publishNowAction,
   schedulePostAction,
-  cancelScheduleAction
+  cancelScheduleAction,
+  deleteJobAction,
+  retryIntakeAction
 } from '@/app/actions/content';
 import type { Job, Draft, PlatformPost } from '@/types/database';
 
@@ -131,6 +133,38 @@ export default function ProjectDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {(job.status === 'submitted' || job.status === 'failed') && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                  setIsUpdating(true);
+                  await retryIntakeAction(job.id);
+                  setIsUpdating(false);
+                }}
+                disabled={isUpdating}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <RotateCw size={14} className={`mr-2 ${isUpdating ? 'animate-spin' : ''}`} /> 
+                Retry Intake
+              </Button>
+            )}
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={async () => {
+                if (confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) {
+                  await deleteJobAction(job.id);
+                  router.push('/projects');
+                }
+              }}
+              className="text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <Trash2 size={14} className="mr-2" /> 
+              Delete
+            </Button>
+
             {job.status === 'awaiting_review' && (
               <Button 
                 variant="outline" 

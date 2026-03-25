@@ -4,9 +4,10 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Search, Filter, FileText, Link2, ArrowRight, Check, X, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Filter, FileText, Link2, ArrowRight, Check, X, Clock, ChevronLeft, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { deleteJobAction } from '@/app/actions/content';
 import type { Job } from '@/types/database';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -152,7 +153,20 @@ export default function ProjectsPage() {
                   <td className="px-6 py-4 text-sm text-[var(--color-text-muted)] hidden md:table-cell">
                     {new Date(project.created_at!).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 flex items-center justify-end gap-2">
+                    <button 
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) {
+                          await deleteJobAction(project.id);
+                        }
+                      }}
+                      className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete Project"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                     <Link href={`/projects/${project.id}`}>
                       <ArrowRight size={16} className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors" />
                     </Link>
