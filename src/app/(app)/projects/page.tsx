@@ -35,6 +35,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Job[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -84,7 +85,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text)]">Projects</h1>
@@ -146,22 +147,20 @@ export default function ProjectsPage() {
                     </Link>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full w-fit ${statusConfig[project.status!]?.bg || 'bg-gray-50'} ${statusConfig[project.status!]?.color || 'text-gray-600'}`}>
                         {statusConfig[project.status!]?.label || project.status}
                       </span>
-                      <div className="flex gap-2">
-                        {project.is_retry && (
-                          <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
-                            RETRY
-                          </span>
-                        )}
-                        {project.duplicate_warning && (
-                          <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
-                            POSSIBLE DUPLICATE
-                          </span>
-                        )}
-                      </div>
+                      {project.is_retry && (
+                        <span className="text-[10px] text-blue-600 font-bold px-2 py-0.5 rounded bg-blue-100 border border-blue-200">
+                          RETRY
+                        </span>
+                      )}
+                      {project.duplicate_warning && (
+                        <span className="text-[10px] text-orange-600 font-bold px-2 py-0.5 rounded bg-orange-100 border border-orange-200">
+                          DUPLICATE WARNING
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-[var(--color-text-muted)] hidden md:table-cell">
@@ -169,12 +168,10 @@ export default function ProjectsPage() {
                   </td>
                   <td className="px-6 py-4 flex items-center justify-end gap-2">
                     <button 
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) {
-                          await deleteJobAction(project.id);
-                        }
+                        setProjectToDelete(project.id);
                       }}
                       className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete Project"
@@ -198,6 +195,41 @@ export default function ProjectsPage() {
           </table>
         </div>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {projectToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-[var(--color-bg-card)] rounded-xl shadow-[var(--shadow-xl)] w-full max-w-sm p-6 animate-fade-in border border-[var(--color-border)]">
+            <h3 className="text-lg font-bold text-[var(--color-text)] mb-2">Delete Project?</h3>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+              Are you sure you want to delete this project? This will permanently remove all drafts, posts, and related data. This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setProjectToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="primary" 
+                className="!bg-red-600 hover:!bg-red-700 !text-white border-none"
+                onClick={async () => {
+                  try {
+                    await deleteJobAction(projectToDelete);
+                    setProjectToDelete(null);
+                  } catch (err) {
+                    console.error("Failed to delete project:", err);
+                    alert("Failed to delete project. Please try again.");
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

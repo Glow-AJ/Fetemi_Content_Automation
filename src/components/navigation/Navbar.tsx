@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bell, Search, Menu, X, LayoutGrid, BarChart3, PlusCircle, FolderOpen, Settings, LogOut } from 'lucide-react';
+import { Bell, Menu, X, LayoutGrid, BarChart3, PlusCircle, FolderOpen, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -37,15 +37,7 @@ export function Navbar() {
           <Menu className="w-6 h-6" />
         </button>
 
-        {/* Search */}
-        <div className="relative w-full max-w-md hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-          <input 
-            type="text" 
-            placeholder="Search projects..." 
-            className="w-full bg-[var(--color-bg-subtle)] border border-[var(--color-border)] rounded-lg pl-10 pr-4 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10 transition-all duration-200"
-          />
-        </div>
+
 
         <div className="flex items-center gap-2 md:gap-4 ml-auto">
           {/* Notifications */}
@@ -88,11 +80,11 @@ export function Navbar() {
           {/* User */}
           <div className="flex items-center gap-3 pl-2 md:pl-4 border-l border-[var(--color-border)]">
             <div className="hidden sm:block text-right">
-              <p className="text-sm font-semibold text-[var(--color-text)] leading-none">{user?.email?.split('@')[0] || 'User'}</p>
+              <p className="text-sm font-semibold text-[var(--color-text)] leading-none">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</p>
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Manager</p>
             </div>
             <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white text-sm font-semibold">
-              {user?.email?.[0].toUpperCase() || 'U'}
+              {(user?.user_metadata?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
             </div>
           </div>
         </div>

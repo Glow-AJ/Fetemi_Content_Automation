@@ -176,22 +176,20 @@ export default function ProjectDetailPage() {
                 Regenerate ({job.revision_count || 0}/3)
               </Button>
             )}
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center justify-end gap-2">
               <span className={`text-xs font-bold px-3 py-1 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary-soft)] uppercase tracking-wider`}>
                 {job.status!.replace('_', ' ')}
               </span>
-              <div className="flex gap-2">
-                {job.is_retry && (
-                  <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
-                    RETRY
-                  </span>
-                )}
-                {job.duplicate_warning && (
-                  <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
-                    POSSIBLE DUPLICATE
-                  </span>
-                )}
-              </div>
+              {job.is_retry && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
+                  RETRY
+                </span>
+              )}
+              {job.duplicate_warning && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200">
+                  POSSIBLE DUPLICATE
+                </span>
+              )}
             </div>
           </div>
         </div>

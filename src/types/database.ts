@@ -79,6 +79,7 @@ export type Database = {
           normalised_idea: string | null
           original_input: string
           revision_count: number | null
+          search_phrase: string | null
           source_url: string | null
           status: Database["public"]["Enums"]["job_status"] | null
           updated_at: string | null
@@ -95,6 +96,7 @@ export type Database = {
           normalised_idea?: string | null
           original_input: string
           revision_count?: number | null
+          search_phrase?: string | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           updated_at?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           normalised_idea?: string | null
           original_input?: string
           revision_count?: number | null
+          search_phrase?: string | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["job_status"] | null
           updated_at?: string | null
@@ -121,32 +124,44 @@ export type Database = {
       job_errors: {
         Row: {
           created_at: string | null
+          error_description: string | null
+          execution_url: string | null
           id: string
           job_id: string | null
           message: string | null
+          node_name: string | null
           raw_error: Json | null
           updated_at: string | null
           user_id: string
+          workflow_name: string | null
           workflow_phase: string | null
         }
         Insert: {
           created_at?: string | null
+          error_description?: string | null
+          execution_url?: string | null
           id?: string
           job_id?: string | null
           message?: string | null
+          node_name?: string | null
           raw_error?: Json | null
           updated_at?: string | null
           user_id: string
+          workflow_name?: string | null
           workflow_phase?: string | null
         }
         Update: {
           created_at?: string | null
+          error_description?: string | null
+          execution_url?: string | null
           id?: string
           job_id?: string | null
           message?: string | null
+          node_name?: string | null
           raw_error?: Json | null
           updated_at?: string | null
           user_id?: string
+          workflow_name?: string | null
           workflow_phase?: string | null
         }
         Relationships: [
@@ -742,10 +757,6 @@ export const Constants = {
   },
 } as const
 
-// Application-specific types mapped to Supabase
 export type Job = Database['public']['Tables']['content_jobs']['Row'];
 export type Draft = Database['public']['Tables']['article_drafts']['Row'];
 export type PlatformPost = Database['public']['Tables']['platform_posts']['Row'];
-export type UrlType = 'social' | 'paywall' | 'standard' | null;
-export type InputType = 'idea' | 'url';
-

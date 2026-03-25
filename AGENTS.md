@@ -144,7 +144,6 @@ All with RLS enabled. Realtime replication enabled.
 - **Intake Workflow Fix**: Resolved schema mismatch in `src/lib/intake.ts` where the insert was targeting non-existent fields. Standardized on `original_input`, `source_url`, `input_type`, and `status`.
 - **Webhook Payload Alignment**: Updated n8n intake webhook payload to match requested structure: `job_id`, `input_text`, `input_url`, `user_id`, `use_email`.
 - **UI Validation**: Verified `NewContentPage` validation, loading states, and error handling.
-
 - **Intake & Webhook Fix**: Moved intake and all content operations to Server Actions (`src/app/actions/content.ts`) to resolve CORS issues and ensure 100% reliable webhook firing.
 - **Real Data Wiring**: Wired Dashboard, Projects Archive, and Project Detail pages to live Supabase data with real-time listeners. Removed all mock data.
 - **Project Detail Overhaul**: Implemented full draft management flow:
@@ -152,8 +151,9 @@ All with RLS enabled. Realtime replication enabled.
   - Manual draft editing with persistence.
   - Guided revision loop (3 rounds max) with instruction feedback to n8n.
 - **Platform Controls**: Added LinkedIn and Email publish/schedule controls. Implemented "Mark as Posted" for X (manual flow).
-- **Database Schema**: Added `revision_count` to `content_jobs` table.
-
+- **Database Schema**: Added `revision_count` and `search_phrase` to `content_jobs`. Added `node_name`, `workflow_name`, `execution_url`, `error_description` to `job_errors`. Restored missing TS types.
+- **UI Cleanup**: Implemented global delete confirmation modal, fixed retry/duplicate layout issues, and isolated universal search component.
+- **Settings Overhaul**: Separated settings into Profile, Team, Platforms, and Subscribers tabs. Implemented Display Name updates, strict password changes, a functional Invite Member Server Action, and full Subscribers management with native CSV parsing for bulk imports.
 ### Next Steps
 1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron) using the standardized server-action payloads.
 2. **Platform API Integration**: Finalize LinkedIn and Email API connections in n8n.
