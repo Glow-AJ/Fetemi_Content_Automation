@@ -158,11 +158,9 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
     .insert({
       user_id: userId,
       input_type: inputType,
-      topic: topic || null,
+      original_input: topic || url || '',
       source_url: url || null,
-      url_type: urlType || null,
       status: 'submitted',
-      current_phase_detail: 'Job submitted, queued for processing',
     })
     .select('id')
     .single();
@@ -192,12 +190,11 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          jobId: job.id,
-          inputType,
-          url: url || null,
-          urlType: urlType || null,
-          topic: topic || null,
-          userEmail,
+          job_id: job.id,
+          input_text: topic || null,
+          input_url: url || null,
+          user_id: userId,
+          use_email: userEmail,
         }),
       }).catch((err) => {
         // Log webhook failure but don't block the user
@@ -206,7 +203,8 @@ export async function createJobAndFireWebhook(params: CreateJobParams): Promise<
         supabase
           .from('content_jobs')
           .update({
-            current_phase_detail: 'Submitted but automation trigger failed. Please contact support.',
+            error_message: 'Submitted but automation trigger failed. Please contact support.',
+            status: 'failed',
           })
           .eq('id', job.id)
           .then(() => {});

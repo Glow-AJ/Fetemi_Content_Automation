@@ -129,7 +129,7 @@ Raw errors go to a separate Supabase column for debugging only.
 - `ProfileTab`, `TeamTab`, `PlatformsTab`
 
 ### Supabase Schema (Deployed)
-Tables: `jobs`, `drafts`, `platform_posts`, `notifications`, `profiles`, `platform_connections`
+Tables: `content_jobs`, `article_drafts`, `platform_posts`, `notifications`, `profiles`, `platform_connections`, `subscribers`, `seo_briefs`, `job_errors`, `job_status_history`, `newsletter_sends`, `publish_log`
 All with RLS enabled. Realtime replication enabled.
 
 ### Environment Requirements
@@ -140,8 +140,13 @@ All with RLS enabled. Realtime replication enabled.
 - `NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH`
 - `NEXT_PUBLIC_N8N_WEBHOOK_SCHEDULE`
 
+### Recent Updates
+- **Intake Workflow Fix**: Resolved schema mismatch in `src/lib/intake.ts` where the insert was targeting non-existent fields. Standardized on `original_input`, `source_url`, `input_type`, and `status`.
+- **Webhook Payload Alignment**: Updated n8n intake webhook payload to match requested structure: `job_id`, `input_text`, `input_url`, `user_id`, `use_email`.
+- **UI Validation**: Verified `NewContentPage` validation, loading states, and error handling.
+
 ### Next Steps
-1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron).
-2. **Wire Frontend to Webhooks**: Replace mock submission with real n8n webhook calls.
+1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron) using the new payload structure.
+2. **Wire Frontend to Webhooks**: Done for Intake; remaining for Select Draft and Publish/Schedule.
 3. **Supabase Realtime**: Connect dashboard stats and project detail to live Supabase queries.
 4. **Platform API Integration**: Connect LinkedIn, X, and email APIs for actual publishing.
