@@ -193,7 +193,8 @@ export default function ProjectDetailPage() {
             <div className="grid grid-cols-1 gap-4">
               {activeDrafts.length > 0 ? (
                 activeDrafts.map((draft) => {
-                  const sc = seoColor(75); // Mock score for now until SEO score data exists
+                  const score = (draft.seo_validation_score as any)?.score || 0;
+                  const sc = seoColor(score);
                   return (
                     <Card key={draft.id} hover className="border-none shadow-sm transition-all hover:shadow-md group">
                       <div className="flex items-start justify-between gap-4">
@@ -204,12 +205,12 @@ export default function ProjectDetailPage() {
                           <div>
                             <h4 className="text-base font-bold text-[var(--color-text)]">{draft.angle || 'Draft Content'}</h4>
                             <p className="text-xs text-[var(--color-text-muted)] mt-1 uppercase font-semibold">
-                              {draft.word_count || 0} words • Grade 7 Readability
+                              {draft.word_count || 0} words • {(draft.seo_validation_score as any)?.readability || 'Researching Readability'}
                             </p>
                           </div>
                         </div>
                         <div className={`px-3 py-1 rounded-lg ${sc.bg} ${sc.text} font-bold text-sm border`}>
-                          75/100
+                          {score || 0}/100
                         </div>
                       </div>
                       
@@ -402,10 +403,12 @@ export default function ProjectDetailPage() {
               <Button 
                 variant="primary"
                 onClick={async () => {
-                  setIsUpdating(true);
-                  await updateDraftContentAction(editingDraftId, editContent);
-                  setEditingDraftId(null);
-                  setIsUpdating(false);
+                  if (editingDraftId) {
+                    setIsUpdating(true);
+                    await updateDraftContentAction(editingDraftId, editContent);
+                    setEditingDraftId(null);
+                    setIsUpdating(false);
+                  }
                 }}
                 disabled={isUpdating}
               >

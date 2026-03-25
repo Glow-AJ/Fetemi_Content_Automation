@@ -14,7 +14,7 @@ export type JobStatus = typeof JOB_STATUS[keyof typeof JOB_STATUS];
 
 export const PLATFORMS = {
   LINKEDIN: 'linkedin',
-  X: 'x',
+  X: 'twitter',
   EMAIL: 'email',
 } as const;
 

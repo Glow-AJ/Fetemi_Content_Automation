@@ -741,6 +741,8 @@ export const Constants = {
 
 // Application-specific types mapped to Supabase
 export type Job = Database['public']['Tables']['content_jobs']['Row'];
+export type Draft = Database['public']['Tables']['article_drafts']['Row'];
+export type PlatformPost = Database['public']['Tables']['platform_posts']['Row'];
 export type UrlType = 'social' | 'paywall' | 'standard' | null;
 export type InputType = 'idea' | 'url';
 
