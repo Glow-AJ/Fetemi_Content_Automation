@@ -760,3 +760,5 @@ export const Constants = {
 export type Job = Database['public']['Tables']['content_jobs']['Row'];
 export type Draft = Database['public']['Tables']['article_drafts']['Row'];
 export type PlatformPost = Database['public']['Tables']['platform_posts']['Row'];
+export type InputType = 'url' | 'idea';
+export type UrlType = 'social' | 'paywall' | 'standard';
