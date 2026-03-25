@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import crypto from 'crypto';
 
 /**
  * Intake - Creates a job and fires n8n webhook
@@ -11,13 +12,26 @@ export async function createJobAction(formData: {
   originalInput: string;
   sourceUrl?: string;
   userEmail: string;
+  bypassDedupe?: boolean;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) throw new Error('Unauthorized');
 
-  // 1. Insert into Supabase
+  // 1. Calculate Hash & Check for duplicates (last 7 days)
+  const inputHash = crypto.createHash('md5').update(formData.originalInput || formData.sourceUrl || '').digest('hex');
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { data: existingJob } = await supabase
+    .from('content_jobs')
+    .select('id, created_at')
+    .eq('input_hash', inputHash)
+    .gte('created_at', sevenDaysAgo.toISOString())
+    .maybeSingle();
+
+  // 2. Insert into Supabase
   const { data: job, error: insertError } = await supabase
     .from('content_jobs')
     .insert({
@@ -27,6 +41,8 @@ export async function createJobAction(formData: {
       source_url: formData.sourceUrl || null,
       status: 'submitted',
       is_retry: false,
+      input_hash: inputHash,
+      duplicate_warning: !!existingJob
     })
     .select('id')
     .single();
@@ -36,7 +52,7 @@ export async function createJobAction(formData: {
     return { success: false, error: insertError?.message };
   }
 
-  // 2. Fire n8n Intake Webhook
+  // 3. Fire n8n Intake Webhook
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
@@ -278,4 +294,23 @@ export async function retryIntakeAction(jobId: string) {
   }
   
   return { success: false, error: 'Intake webhook not configured.' };
+}
+
+/**
+ * Check for duplicates - Returns true if a similar job exists in the last 7 days
+ */
+export async function checkDuplicateAction(input: string) {
+  const supabase = await createClient();
+  const inputHash = crypto.createHash('md5').update(input).digest('hex');
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  const { data } = await supabase
+    .from('content_jobs')
+    .select('id')
+    .eq('input_hash', inputHash)
+    .gte('created_at', sevenDaysAgo.toISOString())
+    .maybeSingle();
+
+  return { isDuplicate: !!data };
 }

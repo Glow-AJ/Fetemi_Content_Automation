@@ -146,9 +146,23 @@ export default function ProjectsPage() {
                     </Link>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusConfig[project.status!]?.bg || 'bg-gray-50'} ${statusConfig[project.status!]?.color || 'text-gray-600'}`}>
-                      {statusConfig[project.status!]?.label || project.status}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full w-fit ${statusConfig[project.status!]?.bg || 'bg-gray-50'} ${statusConfig[project.status!]?.color || 'text-gray-600'}`}>
+                        {statusConfig[project.status!]?.label || project.status}
+                      </span>
+                      <div className="flex gap-2">
+                        {project.is_retry && (
+                          <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
+                            RETRY
+                          </span>
+                        )}
+                        {project.duplicate_warning && (
+                          <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
+                            POSSIBLE DUPLICATE
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-[var(--color-text-muted)] hidden md:table-cell">
                     {new Date(project.created_at!).toLocaleDateString()}

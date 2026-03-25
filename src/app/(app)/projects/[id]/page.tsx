@@ -176,9 +176,23 @@ export default function ProjectDetailPage() {
                 Regenerate ({job.revision_count || 0}/3)
               </Button>
             )}
-            <span className={`text-xs font-bold px-3 py-1 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary-soft)] uppercase tracking-wider`}>
-              {job.status!.replace('_', ' ')}
-            </span>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`text-xs font-bold px-3 py-1 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary-soft)] uppercase tracking-wider`}>
+                {job.status!.replace('_', ' ')}
+              </span>
+              <div className="flex gap-2">
+                {job.is_retry && (
+                  <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter">
+                    RETRY
+                  </span>
+                )}
+                {job.duplicate_warning && (
+                  <span className="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
+                    POSSIBLE DUPLICATE
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

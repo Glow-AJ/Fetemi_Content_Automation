@@ -15,7 +15,7 @@ import {
   validateUrl,
   classifyUrlQuick,
 } from '@/lib/intake';
-import { createJobAction } from '@/app/actions/content';
+import { createJobAction, checkDuplicateAction } from '@/app/actions/content';
 import type { UrlType } from '@/types/database';
 
 // ─── Structured Error Type ──────────────────────────────────────
@@ -42,6 +42,7 @@ export default function NewContentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<StructuredError | null>(null);
   const [simpleError, setSimpleError] = useState<string | null>(null);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
 
   // URL classification (real-time feedback - derived state)
   const urlClassification = React.useMemo(() => {
@@ -108,11 +109,25 @@ export default function NewContentPage() {
     setIsSubmitting(true);
 
     try {
+      const input = mode === 'idea' ? idea.trim() : url.trim();
+
+      // 1. Check for duplicates if not already bypassed
+      if (!showDuplicateWarning) {
+        const { isDuplicate } = await checkDuplicateAction(input);
+        if (isDuplicate) {
+          setShowDuplicateWarning(true);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // 2. Create Job
       const result = await createJobAction({
         inputType: mode,
-        originalInput: mode === 'idea' ? idea.trim() : url.trim(),
+        originalInput: input,
         sourceUrl: mode === 'url' ? url.trim() : undefined,
         userEmail: user.email || '',
+        bypassDedupe: showDuplicateWarning,
       });
 
       if (!result.success || !result.jobId) {
@@ -264,6 +279,37 @@ export default function NewContentPage() {
             <div className="p-3 rounded-lg bg-[var(--color-error-soft)] border border-red-200 text-[var(--color-error)] text-sm font-medium flex items-start gap-2">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               {simpleError}
+            </div>
+          )}
+ 
+          {showDuplicateWarning && (
+            <div className="p-4 rounded-lg bg-[var(--color-warning-soft)] border border-amber-200 space-y-3">
+              <div className="flex items-start gap-3 text-amber-900 text-sm">
+                <AlertCircle size={18} className="shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-bold">Possible Duplicate Detected</p>
+                  <p className="mt-1">A similar project was submitted in the last 7 days. Do you want to proceed anyway?</p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button 
+                  type="button" 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={() => setShowDuplicateWarning(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="primary" 
+                  size="sm" 
+                  className="bg-amber-600 hover:bg-amber-700 border-none"
+                  onClick={handleSubmit}
+                >
+                  Yes, Proceed Anyway
+                </Button>
+              </div>
             </div>
           )}
 
