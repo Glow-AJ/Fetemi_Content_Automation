@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -756,6 +756,7 @@ export const Constants = {
     },
   },
 } as const
+
 
 export type Job = Database['public']['Tables']['content_jobs']['Row'];
 export type Draft = Database['public']['Tables']['article_drafts']['Row'];
