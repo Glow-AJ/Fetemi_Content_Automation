@@ -25,6 +25,7 @@ export function SubscribersTab() {
   // Add Form
   const [addEmail, setAddEmail] = useState('');
   const [addName, setAddName] = useState('');
+  const [addDate, setAddDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAdding, setIsAdding] = useState(false);
 
   // CSV
@@ -52,13 +53,15 @@ export function SubscribersTab() {
       email: addEmail, 
       name: addName || null, 
       user_id: user.id,
-      status: 'active' 
+      status: 'active',
+      subscribed_at: addDate ? new Date(addDate).toISOString() : new Date().toISOString()
     }]);
     setIsAdding(false);
     if (!error) {
       setShowAddModal(false);
       setAddEmail('');
       setAddName('');
+      setAddDate(new Date().toISOString().split('T')[0]);
       fetchSubscribers();
     } else {
       alert(error.message);
@@ -206,7 +209,7 @@ export function SubscribersTab() {
 
       {/* Manual Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <Card className="max-w-md w-full animate-scale-in">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-lg text-[var(--color-text)]">Add Subscriber</h3>
@@ -217,6 +220,7 @@ export function SubscribersTab() {
             <form onSubmit={handleManualAdd} className="space-y-4">
               <Input label="Email Address" type="email" required placeholder="subscriber@example.com" value={addEmail} onChange={e => setAddEmail(e.target.value)} />
               <Input label="Full Name (Optional)" type="text" placeholder="John Doe" value={addName} onChange={e => setAddName(e.target.value)} />
+              <Input label="Subscription Date" type="date" value={addDate} onChange={e => setAddDate(e.target.value)} />
               
               <div className="flex justify-end gap-3 pt-4">
                 <Button variant="outline" type="button" onClick={() => setShowAddModal(false)}>Cancel</Button>
@@ -231,7 +235,7 @@ export function SubscribersTab() {
 
       {/* CSV Upload Modal */}
       {showCsvModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <Card className="max-w-md w-full animate-scale-in">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-lg text-[var(--color-text)]">Upload CSV</h3>

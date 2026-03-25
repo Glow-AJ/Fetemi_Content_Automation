@@ -23,8 +23,10 @@ import {
 } from '@/app/actions/content';
 import type { Job, Draft, PlatformPost } from '@/types/database';
 
+
 const phases = [
   { key: 'submitted', label: 'Submitted' },
+  { key: 'researching', label: 'Researching' },
   { key: 'seo_research', label: 'SEO Research' },
   { key: 'drafting', label: 'Drafting' },
   { key: 'awaiting_review', label: 'Awaiting Review' },
@@ -396,7 +398,7 @@ export default function ProjectDetailPage() {
 
       {/* REVISION MODAL */}
       {showRevisionModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <Card className="max-w-md w-full animate-scale-in">
             <h3 className="text-xl font-bold mb-2">Request Reconstructions</h3>
             <p className="text-sm text-zinc-500 mb-4">Tell us what to change about current drafts. For example: "More conversational", "Focus on ROI", etc.</p>
@@ -429,7 +431,7 @@ export default function ProjectDetailPage() {
 
       {/* EDIT MODAL */}
       {editingDraftId && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <Card className="max-w-3xl w-full max-h-[90vh] flex flex-col animate-scale-in">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">Edit Article Draft</h3>

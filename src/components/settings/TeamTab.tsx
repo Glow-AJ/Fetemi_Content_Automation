@@ -82,7 +82,7 @@ export function TeamTab() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <Card className="max-w-md w-full animate-scale-in">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[var(--color-text)]">Invite Team Member</h3>

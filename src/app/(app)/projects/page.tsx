@@ -198,8 +198,8 @@ export default function ProjectsPage() {
 
       {/* Delete Confirmation Modal */}
       {projectToDelete && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-[var(--color-bg-card)] rounded-xl shadow-[var(--shadow-xl)] w-full max-w-sm p-6 animate-fade-in border border-[var(--color-border)]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-[var(--color-bg-card)] rounded-xl shadow-[var(--shadow-xl)] w-full max-w-sm p-6 animate-scale-in border border-[var(--color-border)]">
             <h3 className="text-lg font-bold text-[var(--color-text)] mb-2">Delete Project?</h3>
             <p className="text-sm text-[var(--color-text-secondary)] mb-6">
               Are you sure you want to delete this project? This will permanently remove all drafts, posts, and related data. This action cannot be undone.

@@ -3,6 +3,8 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import crypto from 'crypto';
+import { validateUrl } from '@/lib/intake';
+import { PLATFORMS } from '@/lib/constants';
 
 /**
  * Intake - Creates a job and fires n8n webhook
@@ -56,11 +58,15 @@ export async function createJobAction(formData: {
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
+      const { type: urlType } = formData.inputType === 'url' ? validateUrl(formData.sourceUrl || '') : { type: null };
+      
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_id: job.id,
+          input_type: formData.inputType,
+          url_type: urlType,
           input_text: formData.inputType === 'idea' ? formData.originalInput : null,
           input_url: formData.inputType === 'url' ? formData.sourceUrl : null,
           user_id: user.id,
@@ -264,12 +270,16 @@ export async function retryIntakeAction(jobId: string) {
   // 2. Fire n8n Intake Webhook
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
+    const { type: urlType } = job.input_type === 'url' ? validateUrl(job.source_url || '') : { type: null };
+
     try {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_id: job.id,
+          input_type: job.input_type,
+          url_type: urlType,
           input_text: job.input_type === 'idea' ? job.original_input : null,
           input_url: job.input_type === 'url' ? job.source_url : null,
           user_id: job.user_id,

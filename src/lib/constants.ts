@@ -8,6 +8,7 @@ export const JOB_STATUS = {
   SCHEDULING: 'scheduling',
   PUBLISHED: 'published',
   FAILED: 'failed',
+  RESEARCHING: 'researching',
 } as const;
 
 export type JobStatus = typeof JOB_STATUS[keyof typeof JOB_STATUS];

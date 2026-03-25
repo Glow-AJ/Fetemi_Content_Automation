@@ -590,6 +590,7 @@ export type Database = {
         | "scheduling"
         | "published"
         | "failed"
+        | "researching"
       notification_type: "info" | "success" | "error"
       platform_type: "linkedin" | "twitter" | "email"
       post_status:
@@ -740,6 +741,7 @@ export const Constants = {
         "scheduling",
         "published",
         "failed",
+        "researching",
       ],
       notification_type: ["info", "success", "error"],
       platform_type: ["linkedin", "twitter", "email"],
