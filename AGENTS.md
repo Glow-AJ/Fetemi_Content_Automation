@@ -145,8 +145,16 @@ All with RLS enabled. Realtime replication enabled.
 - **Webhook Payload Alignment**: Updated n8n intake webhook payload to match requested structure: `job_id`, `input_text`, `input_url`, `user_id`, `use_email`.
 - **UI Validation**: Verified `NewContentPage` validation, loading states, and error handling.
 
+- **Intake & Webhook Fix**: Moved intake and all content operations to Server Actions (`src/app/actions/content.ts`) to resolve CORS issues and ensure 100% reliable webhook firing.
+- **Real Data Wiring**: Wired Dashboard, Projects Archive, and Project Detail pages to live Supabase data with real-time listeners. Removed all mock data.
+- **Project Detail Overhaul**: Implemented full draft management flow:
+  - Draft selection and automatic platform adaptation trigger.
+  - Manual draft editing with persistence.
+  - Guided revision loop (3 rounds max) with instruction feedback to n8n.
+- **Platform Controls**: Added LinkedIn and Email publish/schedule controls. Implemented "Mark as Posted" for X (manual flow).
+- **Database Schema**: Added `revision_count` to `content_jobs` table.
+
 ### Next Steps
-1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron) using the new payload structure.
-2. **Wire Frontend to Webhooks**: Done for Intake; remaining for Select Draft and Publish/Schedule.
-3. **Supabase Realtime**: Connect dashboard stats and project detail to live Supabase queries.
-4. **Platform API Integration**: Connect LinkedIn, X, and email APIs for actual publishing.
+1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron) using the standardized server-action payloads.
+2. **Platform API Integration**: Finalize LinkedIn and Email API connections in n8n.
+3. **Advanced Scheduling**: Implement the database-driven scheduling check if n8n schedule triggers prove inefficient.

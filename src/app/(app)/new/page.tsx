@@ -14,8 +14,8 @@ import { createClient } from '@/utils/supabase/client';
 import {
   validateUrl,
   classifyUrlQuick,
-  createJobAndFireWebhook,
 } from '@/lib/intake';
+import { createJobAction } from '@/app/actions/content';
 import type { UrlType } from '@/types/database';
 
 // ─── Structured Error Type ──────────────────────────────────────
@@ -108,22 +108,17 @@ export default function NewContentPage() {
     setIsSubmitting(true);
 
     try {
-      const urlValidation = mode === 'url' ? validateUrl(url) : null;
-
-      const result = await createJobAndFireWebhook({
-        supabase,
-        userId: user.id,
-        userEmail: user.email || '',
+      const result = await createJobAction({
         inputType: mode,
-        topic: mode === 'idea' ? idea.trim() : undefined,
-        url: mode === 'url' ? url.trim() : undefined,
-        urlType: urlValidation?.type || undefined,
+        originalInput: mode === 'idea' ? idea.trim() : url.trim(),
+        sourceUrl: mode === 'url' ? url.trim() : undefined,
+        userEmail: user.email || '',
       });
 
       if (!result.success || !result.jobId) {
-        setError(result.error || {
+        setError({
           what: 'Something went wrong.',
-          why: 'The project could not be created.',
+          why: result.error || 'The project could not be created.',
           nextStep: 'Please try again.',
         });
         setIsSubmitting(false);
