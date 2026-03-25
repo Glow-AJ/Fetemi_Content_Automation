@@ -75,6 +75,7 @@ export type Database = {
           id: string
           input_hash: string | null
           input_type: string | null
+          is_retry: boolean | null
           normalised_idea: string | null
           original_input: string
           revision_count: number | null
@@ -90,6 +91,7 @@ export type Database = {
           id?: string
           input_hash?: string | null
           input_type?: string | null
+          is_retry?: boolean | null
           normalised_idea?: string | null
           original_input: string
           revision_count?: number | null
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           input_hash?: string | null
           input_type?: string | null
+          is_retry?: boolean | null
           normalised_idea?: string | null
           original_input?: string
           revision_count?: number | null

@@ -26,6 +26,7 @@ export async function createJobAction(formData: {
       original_input: formData.originalInput,
       source_url: formData.sourceUrl || null,
       status: 'submitted',
+      is_retry: false,
     })
     .select('id')
     .single();
@@ -261,8 +262,12 @@ export async function retryIntakeAction(jobId: string) {
         }),
       });
       
-      // Reset status to submitted to show progress
-      await supabase.from('content_jobs').update({ status: 'submitted', error_message: null }).eq('id', jobId);
+      // Reset status to submitted to show progress and mark as retry
+      await supabase.from('content_jobs').update({ 
+        status: 'submitted', 
+        error_message: null,
+        is_retry: true 
+      }).eq('id', jobId);
       
       revalidatePath(`/projects/${jobId}`);
       return { success: true };
