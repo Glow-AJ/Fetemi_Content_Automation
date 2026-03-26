@@ -127,8 +127,56 @@ export default function ProjectDetailPage() {
   const revisionHistory = drafts.filter(d => d.status === 'rejected');
   const selectedDraft = drafts.find(d => d.selected);
 
+  if (editingDraftId) {
+    const draftToEdit = activeDrafts.find(d => d.id === editingDraftId) || selectedDraft;
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex items-center justify-between mb-8">
+          <button 
+            onClick={() => setEditingDraftId(null)}
+            className="flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-zinc-900 transition-colors group cursor-pointer"
+          >
+            <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+            Back to Project
+          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-zinc-400 bg-zinc-100 px-3 py-1 rounded-full uppercase tracking-widest">Editor Mode</span>
+            <Button 
+              variant="primary"
+              loading={isUpdating}
+              onClick={async () => {
+                if (editingDraftId) {
+                  setIsUpdating(true);
+                  await updateDraftContentAction(editingDraftId, editContent);
+                  setEditingDraftId(null);
+                  setIsUpdating(false);
+                }
+              }}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto space-y-8 pb-20">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black text-zinc-900 tracking-tight">{draftToEdit?.angle || 'Untitled Draft'}</h1>
+            <p className="text-zinc-400 font-medium">Editing the content of this article draft. Changes are saved to the database.</p>
+          </div>
+
+          <Card className="p-0 border-none shadow-2xl overflow-hidden ring-1 ring-black/5">
+            <RichTextEditor 
+              content={editContent}
+              onChange={setEditContent}
+            />
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-20">
       {/* Header */}
       <div>
         <button onClick={() => router.push('/projects')} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)] mb-4 cursor-pointer transition-colors">
@@ -206,10 +254,11 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Status Timeline */}
-        <Card className="lg:col-span-1 border-none shadow-sm !bg-zinc-50/50">
-          <h3 className="text-sm font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mb-6">Pipeline Status</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+        {/* Status Timeline - STICKY */}
+        <aside className="lg:col-span-1 sticky top-8 self-start">
+          <Card className="border-none shadow-sm !bg-zinc-50/50 p-6">
+            <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-8">Pipeline Status</h3>
           <div className="space-y-0">
             {phases.map((phase, i) => {
               const isDone = i < currentPhaseIndex || job.status === 'published';
@@ -238,7 +287,8 @@ export default function ProjectDetailPage() {
               );
             })}
           </div>
-        </Card>
+          </Card>
+        </aside>
 
         {/* Drafts Section */}
         <div className="lg:col-span-3 space-y-4">
@@ -263,72 +313,73 @@ export default function ProjectDetailPage() {
                   const score = (draft.seo_validation_score as any)?.score || 0;
                   const sc = seoColor(score);
                   return (
-                    <Card key={draft.id} hover className="border-none shadow-sm transition-all hover:shadow-md group relative">
+                    <Card key={draft.id} className="border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-0">
                       {draft.image_url && (
-                        <div className="mb-4 rounded-xl overflow-hidden border border-zinc-100 shadow-sm aspect-video">
-                          <img src={draft.image_url} alt="Draft concept" className="w-full h-full object-cover" />
+                        <div className="w-full h-40 bg-zinc-100 overflow-hidden border-b border-zinc-50">
+                          <img src={draft.image_url} alt="Draft concept" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         </div>
                       )}
                       
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors">
-                            <FileText size={20} />
+                      <div className="p-5 flex flex-col grow">
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors">
+                              <FileText size={16} />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-zinc-900 leading-tight">{draft.angle || 'Draft Content'}</h4>
+                              <p className="text-[10px] text-zinc-400 mt-0.5 uppercase font-bold tracking-tight">
+                                {draft.word_count || 0} words • {(draft.seo_validation_score as any)?.readability || 'Standard'}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-base font-bold text-[var(--color-text)]">{draft.angle || 'Draft Content'}</h4>
-                            <p className="text-xs text-[var(--color-text-muted)] mt-1 uppercase font-semibold">
-                              {draft.word_count || 0} words • {(draft.seo_validation_score as any)?.readability || 'Researching Readability'}
-                            </p>
+                          <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${sc.bg} ${sc.text} border border-current/10 whitespace-nowrap`}>
+                            SEO: {score || 0}%
                           </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-lg ${sc.bg} ${sc.text} font-bold text-sm border`}>
-                          {score || 0}/100
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4 p-5 rounded-2xl bg-zinc-50 border border-zinc-100 text-sm text-zinc-700 leading-relaxed max-h-48 overflow-hidden relative">
-                        <div className="prose prose-sm max-w-none">
+                        
+                        <div className="prose prose-xs max-w-none text-zinc-600 line-clamp-3 mb-4 flex-grow prose-headings:text-zinc-900 prose-a:text-blue-600 prose-strong:text-zinc-900">
                            <ReactMarkdown>{draft.content || ''}</ReactMarkdown>
                         </div>
-                        {!draft.content && <p className="italic text-zinc-400">Content pending...</p>}
-                        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-50 to-transparent" />
-                      </div>
 
-                      <div className="mt-4 flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setEditingDraftId(draft.id!);
-                            setEditContent(draft.content || '');
-                          }}
-                        >
-                          <Edit3 size={14} className="mr-2" /> Edit
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setRevisionTargetId(draft.id!);
-                            setShowRevisionModal(true);
-                          }}
-                          disabled={(job.revision_count || 0) >= 3}
-                        >
-                          <RefreshCcw size={14} className="mr-2" /> Revise
-                        </Button>
-                        <Button 
-                          variant="primary" 
-                          size="sm"
-                          onClick={async () => {
-                            setIsUpdating(true);
-                            await selectDraftAction(job.id, draft.id!);
-                            setIsUpdating(false);
-                          }}
-                          disabled={isUpdating}
-                        >
-                          Select & Adapt
-                        </Button>
+                        <div className="flex items-center gap-2 pt-4 border-t border-zinc-50 mt-auto">
+                          <Button 
+                            variant="primary" 
+                            size="sm"
+                            className="flex-1 text-[10px] h-8 font-bold"
+                            onClick={async () => {
+                              setIsUpdating(true);
+                              await selectDraftAction(job.id, draft.id!);
+                              setIsUpdating(false);
+                            }}
+                            disabled={isUpdating}
+                          >
+                            Select & Adapt
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-[10px] h-8 px-3"
+                            onClick={() => {
+                              setEditingDraftId(draft.id!);
+                              setEditContent(draft.content || '');
+                            }}
+                          >
+                            <Edit3 size={14} />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-[10px] h-8 px-3"
+                            onClick={() => {
+                              setRevisionTargetId(draft.id!);
+                              setShowRevisionModal(true);
+                            }}
+                            disabled={(job.revision_count || 0) >= 3}
+                          >
+                            <RefreshCcw size={14} />
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   );
@@ -342,29 +393,40 @@ export default function ProjectDetailPage() {
             </div>
           ) : (
             /* Selected Draft View */
-            <Card className="border-[var(--color-primary-soft)] bg-[var(--color-primary-soft)]/5 relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-4">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-primary)] bg-white px-2.5 py-1 rounded-full border border-[var(--color-primary-soft)] shadow-sm">
-                    <Check size={12} strokeWidth={3} /> Selected
-                  </span>
-               </div>
+            <Card className="border-none shadow-sm !bg-white p-0 overflow-hidden ring-1 ring-black/5">
+               {selectedDraft.image_url && (
+                 <div className="w-full h-64 bg-zinc-100 overflow-hidden">
+                    <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover" />
+                 </div>
+               )}
                
-               <h4 className="text-lg font-bold text-[var(--color-text)] mb-2">{selectedDraft.angle || 'Selected Draft'}</h4>
-               <div className="prose prose-sm max-w-none text-zinc-700 bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm leading-relaxed overflow-x-auto min-h-[300px]">
-                  <ReactMarkdown>{selectedDraft.content || ''}</ReactMarkdown>
-               </div>
-               
-               <div className="mt-4 flex justify-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setEditingDraftId(selectedDraft.id!);
-                      setEditContent(selectedDraft.content || '');
-                    }}
-                  >
-                    <Edit3 size={14} className="mr-2" /> Edit Draft
-                  </Button>
+               <div className="p-8 lg:p-12">
+                 <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <h4 className="text-2xl font-black text-zinc-900 tracking-tight leading-tight mb-2">{selectedDraft.angle || 'Selected Draft'}</h4>
+                      <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest">{selectedDraft.word_count || 0} WORDS • {new Date(selectedDraft.created_at!).toLocaleDateString()}</p>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 shadow-sm uppercase tracking-wider">
+                      <Check size={12} strokeWidth={3} /> Selected
+                    </span>
+                 </div>
+                 
+                 <div className="prose prose-zinc prose-lg max-w-none text-zinc-700 leading-relaxed prose-headings:font-black prose-headings:text-zinc-900 prose-headings:tracking-tight prose-a:text-blue-600 prose-a:font-bold hover:prose-a:underline prose-strong:text-zinc-900 prose-img:rounded-3xl">
+                    <ReactMarkdown>{selectedDraft.content || ''}</ReactMarkdown>
+                 </div>
+                 
+                 <div className="mt-12 pt-8 border-t border-zinc-100 flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setEditingDraftId(selectedDraft.id!);
+                        setEditContent(selectedDraft.content || '');
+                      }}
+                      className="px-8 font-bold"
+                    >
+                      <Edit3 size={16} className="mr-2" /> Edit Final Content
+                    </Button>
+                 </div>
                </div>
             </Card>
           )}
@@ -532,39 +594,6 @@ export default function ProjectDetailPage() {
         </div>
       </Modal>
 
-      {/* EDIT MODAL */}
-      <Modal
-        isOpen={!!editingDraftId}
-        onClose={() => setEditingDraftId(null)}
-        title="Edit Article Draft"
-        maxWidth="max-w-5xl"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setEditingDraftId(null)}>Discard</Button>
-            <Button 
-              variant="primary"
-              loading={isUpdating}
-              onClick={async () => {
-                if (editingDraftId) {
-                  setIsUpdating(true);
-                  await updateDraftContentAction(editingDraftId, editContent);
-                  setEditingDraftId(null);
-                  setIsUpdating(false);
-                }
-              }}
-            >
-              Save Content
-            </Button>
-          </>
-        }
-      >
-        <div className="min-h-[500px]">
-           <RichTextEditor 
-             content={editContent}
-             onChange={setEditContent}
-           />
-        </div>
-      </Modal>
     </div>
   );
 }

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bell, Menu, X, LayoutGrid, BarChart3, PlusCircle, FolderOpen, Settings, LogOut } from 'lucide-react';
+import { Bell, Menu, X, LayoutGrid, BarChart3, PlusCircle, FolderOpen, Settings, LogOut, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useLayout } from '@/context/LayoutContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -15,6 +16,7 @@ const navItems = [
 
 export function Navbar() {
   const { user, signOut } = useAuth();
+  const { isSidebarCollapsed, toggleSidebar } = useLayout();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const pathname = usePathname();
@@ -35,6 +37,15 @@ export function Navbar() {
           onClick={() => setShowMobileMenu(true)}
         >
           <Menu className="w-6 h-6" />
+        </button>
+
+        {/* Sidebar Toggle (Desktop) */}
+        <button 
+          className="hidden md:flex p-2 -ml-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-subtle)] rounded-lg transition-colors cursor-pointer" 
+          onClick={toggleSidebar}
+          title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isSidebarCollapsed ? <PanelLeft className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
         </button>
 
 

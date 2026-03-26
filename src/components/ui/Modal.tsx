@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -20,8 +21,10 @@ export const Modal = ({
   footer,
   maxWidth = 'max-w-lg' 
 }: ModalProps) => {
-  // Prevent scrolling when modal is open
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -32,10 +35,10 @@ export const Modal = ({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 isolate animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 isolate animate-in fade-in duration-200">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md transition-opacity"
@@ -67,6 +70,7 @@ export const Modal = ({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
