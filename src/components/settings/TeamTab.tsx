@@ -5,7 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Plus, X, Loader2, CheckCircle2 } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { Plus, Loader2, CheckCircle2 } from 'lucide-react';
 import { inviteTeamMemberAction } from '@/app/actions/team';
 
 export function TeamTab() {
@@ -60,7 +61,7 @@ export function TeamTab() {
             <tr>
               <td className="py-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-xs font-semibold">
+                  <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-xs font-semibold shadow-sm">
                     {(user?.user_metadata?.name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                   </div>
                   <div>
@@ -71,7 +72,7 @@ export function TeamTab() {
                   </div>
                 </div>
               </td>
-              <td className="py-3"><span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">Admin</span></td>
+              <td className="py-3"><span className="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">Admin</span></td>
               <td className="py-3 text-sm text-[var(--color-text-muted)] hidden sm:table-cell">
                 {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Active'}
               </td>
@@ -80,59 +81,48 @@ export function TeamTab() {
         </table>
       </Card>
 
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-          <Card className="max-w-md w-full animate-scale-in">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[var(--color-text)]">Invite Team Member</h3>
-              <button onClick={() => setShowInviteModal(false)} className="p-2 -mr-2 text-zinc-400 hover:text-zinc-600 rounded-lg">
-                <X size={20} />
-              </button>
-            </div>
+      <Modal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        title="Invite Team Member"
+        footer={!inviteSuccess ? (
+          <>
+            <Button variant="secondary" onClick={() => setShowInviteModal(false)}>Cancel</Button>
+            <Button variant="primary" loading={isInviting} onClick={handleInvite}>Send Invite</Button>
+          </>
+        ) : null}
+      >
+        {inviteSuccess ? (
+          <div className="text-center py-6">
+            <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3 animate-in zoom-in duration-300" />
+            <p className="text-lg font-bold text-[var(--color-text)] mb-1">Invite Sent!</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              An invitation email has been sent to the new member.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+              Send an email invitation to a new team member to join your Fetemi workspace. They will receive a link to set up their account.
+            </p>
             
-            {inviteSuccess ? (
-              <div className="text-center py-6">
-                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <p className="text-lg font-bold text-[var(--color-text)] mb-1">Invite Sent!</p>
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  An invitation email has been sent to the new member.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleInvite} className="space-y-4">
-                <p className="text-sm text-[var(--color-text-secondary)] mb-2">
-                  Send an email invitation to a new team member to join your Fetemi workspace.
-                </p>
-                
-                <Input 
-                  label="Email Address" 
-                  type="email" 
-                  required 
-                  placeholder="colleague@company.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-                
-                {inviteError && (
-                  <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded border border-red-100">
-                    {inviteError}
-                  </p>
-                )}
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setShowInviteModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="primary" disabled={isInviting || !inviteEmail}>
-                    {isInviting ? <><Loader2 size={16} className="mr-2 animate-spin" /> Sending...</> : 'Send Invite'}
-                  </Button>
-                </div>
-              </form>
+            <Input 
+              label="Email Address" 
+              type="email" 
+              required 
+              placeholder="colleague@company.com"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+            />
+            
+            {inviteError && (
+              <p className="text-xs font-bold text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 animate-in shake duration-300">
+                {inviteError}
+              </p>
             )}
-          </Card>
-        </div>
-      )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

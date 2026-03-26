@@ -21,7 +21,10 @@ export type Database = {
           content: string | null
           created_at: string | null
           id: string
+          image_url: string | null
           job_id: string | null
+          manager_feedback: string | null
+          revision_round: number | null
           selected: boolean | null
           seo_validation_score: Json | null
           status: Database["public"]["Enums"]["draft_status"] | null
@@ -35,7 +38,10 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           id?: string
+          image_url?: string | null
           job_id?: string | null
+          manager_feedback?: string | null
+          revision_round?: number | null
           selected?: boolean | null
           seo_validation_score?: Json | null
           status?: Database["public"]["Enums"]["draft_status"] | null
@@ -49,7 +55,10 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           id?: string
+          image_url?: string | null
           job_id?: string | null
+          manager_feedback?: string | null
+          revision_round?: number | null
           selected?: boolean | null
           seo_validation_score?: Json | null
           status?: Database["public"]["Enums"]["draft_status"] | null
@@ -582,7 +591,12 @@ export type Database = {
     }
     Enums: {
       connection_status: "active" | "broken" | "not_connected"
-      draft_status: "generated" | "failed" | "selected" | "rejected"
+      draft_status:
+        | "generated"
+        | "failed"
+        | "selected"
+        | "rejected"
+        | "regenerating"
       job_status:
         | "submitted"
         | "seo_research"
@@ -733,7 +747,13 @@ export const Constants = {
   public: {
     Enums: {
       connection_status: ["active", "broken", "not_connected"],
-      draft_status: ["generated", "failed", "selected", "rejected"],
+      draft_status: [
+        "generated",
+        "failed",
+        "selected",
+        "rejected",
+        "regenerating",
+      ],
       job_status: [
         "submitted",
         "seo_research",

@@ -122,11 +122,10 @@ export async function selectDraftAction(jobId: string, draftId: string) {
   return { success: true };
 }
 
-/**
- * Regeneration - Guided revision loop (max 3)
- */
-export async function regenerateDraftsAction(jobId: string, instructions: string) {
+export async function regenerateDraftsAction(jobId: string, draftId: string, instructions: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
   
   // 1. Get current job to check revision count
   const { data: job } = await supabase.from('content_jobs').select('revision_count').eq('id', jobId).single();
@@ -136,8 +135,13 @@ export async function regenerateDraftsAction(jobId: string, instructions: string
     return { success: false, error: 'Maximum revision limit (3) reached.' };
   }
 
-  // 2. Mark existing drafts as rejected
-  await supabase.from('article_drafts').update({ status: 'rejected' }).eq('job_id', jobId).eq('status', 'generated');
+  // 2. Mark the specific draft as rejected and save feedback
+  await supabase.from('article_drafts')
+    .update({ 
+      status: 'rejected', 
+      manager_feedback: instructions 
+    })
+    .eq('id', draftId);
 
   // 3. Update job count and status
   await supabase.from('content_jobs').update({ 
@@ -145,8 +149,16 @@ export async function regenerateDraftsAction(jobId: string, instructions: string
     revision_count: currentCount + 1 
   }).eq('id', jobId);
 
-  // 4. Trigger n8n (use same intake/generation webhook but with instructions)
-  const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE; // Or a dedicated revision webhook if preferred
+  // 4. Insert a placeholder draft for the next round
+  const { data: newDraft } = await supabase.from('article_drafts').insert({
+    job_id: jobId,
+    user_id: user.id,
+    status: 'regenerating',
+    revision_round: currentCount + 1
+  }).select('id').single();
+
+  // 5. Trigger n8n
+  const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
       await fetch(webhookUrl, {
@@ -154,8 +166,10 @@ export async function regenerateDraftsAction(jobId: string, instructions: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           job_id: jobId, 
+          draft_id: newDraft?.id, // Pass the ID of the placeholder for n8n to update
           revision_instructions: instructions,
-          is_regeneration: true 
+          is_regeneration: true,
+          revision_round: currentCount + 1
         }),
       });
     } catch (err) {
