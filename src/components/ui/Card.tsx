@@ -8,9 +8,10 @@ type CardProps = {
   variant?: 'default' | 'outline' | 'glass';
   hover?: boolean;
   padding?: boolean;
+  onClick?: () => void;
 };
 
-export function Card({ children, className = '', variant = 'default', hover = false, padding = true }: CardProps) {
+export function Card({ children, className = '', variant = 'default', hover = false, padding = true, onClick }: CardProps) {
   const base = 'rounded-xl transition-all duration-200';
 
   const variants: Record<string, string> = {
@@ -22,7 +23,7 @@ export function Card({ children, className = '', variant = 'default', hover = fa
   const hoverEffect = hover ? 'hover:shadow-[var(--shadow-md)] hover:border-[var(--color-text-muted)]/30 cursor-pointer' : '';
 
   return (
-    <div className={`${base} ${variants[variant]} ${hoverEffect} ${padding ? 'p-6' : ''} ${className}`}>
+    <div className={`${base} ${variants[variant]} ${hoverEffect} ${padding ? 'p-6' : ''} ${className}`} onClick={onClick}>
       {children}
     </div>
   );

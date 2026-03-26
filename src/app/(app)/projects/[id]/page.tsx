@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { SelectConfirmationModal } from '@/components/content/SelectConfirmationModal';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { 
@@ -20,7 +19,10 @@ import {
   updateDraftContentAction,
   publishNowAction,
   deleteJobAction,
-  retryIntakeAction
+  retryIntakeAction,
+  schedulePostAction,
+  cancelScheduleAction,
+  markAsPostedAction
 } from '@/app/actions/content';
 import { Modal } from '@/components/ui/Modal';
 import { RichTextEditor } from '@/components/ui/Editor';
@@ -45,7 +47,8 @@ function seoColor(score: number) {
 }
 
 export default function ProjectDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
@@ -68,6 +71,7 @@ export default function ProjectDetailPage() {
   const [revisionTargetId, setRevisionTargetId] = useState<string | null>(null);
   const [jobError, setJobError] = useState<any>(null);
   const [isSelectingFromList, setIsSelectingFromList] = useState(false);
+  const [showInputModal, setShowInputModal] = useState(false);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -149,9 +153,56 @@ export default function ProjectDetailPage() {
 
   const saveContent = async (draftId: string) => {
     setIsUpdating(true);
-    await updateDraftContentAction(draftId, editorContent);
+    const res = await updateDraftContentAction(draftId, editorContent);
     setIsUpdating(false);
-    setViewMode('view');
+    if (!res.success) {
+      alert(res.error || 'Failed to save changes');
+    } else {
+      setViewMode('view');
+    }
+  };
+
+  const handleRetryIntake = async () => {
+    setIsUpdating(true);
+    const res = await retryIntakeAction(id as string);
+    setIsUpdating(false);
+    if (!res.success) alert(res.error || 'Failed to retry intake');
+    else alert('Intake retry triggered!');
+  };
+
+  const handleDeleteProject = async () => {
+    if (!window.confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) return;
+    setIsDeleting(true);
+    const res = await deleteJobAction(id as string);
+    setIsDeleting(false);
+    if (res.success) router.push('/projects');
+    else alert(res.error || 'Failed to delete project');
+  };
+
+  const handleRegenerateDrafts = async () => {
+    if (!revisionTargetId && !selectedDraft) return;
+    const targetId = revisionTargetId || selectedDraft?.id;
+    if (!targetId) return;
+    
+    setIsUpdating(true);
+    const res = await regenerateDraftsAction(id as string, targetId, revisionNote);
+    setIsUpdating(false);
+    
+    if (res.success) {
+      setShowRevisionModal(false);
+      setRevisionNote('');
+      setRevisionTargetId(null);
+      if (selectedDraft) setSelectedDraft(null); // Return to list if in editor
+    } else {
+      alert(res.error || 'Failed to trigger regeneration');
+    }
+  };
+
+  const handleMarkAsPosted = async (postId: string) => {
+    if (!window.confirm('Are you sure you want to mark this as posted? This will stop any further automation for this platform.')) return;
+    const res = await markAsPostedAction(postId);
+    if (!res.success) alert(res.error || 'Failed to update status');
+    else alert('Success! Post marked as published.');
   };
 
   if (loading) {
@@ -185,12 +236,27 @@ export default function ProjectDetailPage() {
           <ArrowLeft size={16} /> Back to Projects
         </button>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-900">{job.original_input}</h1>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-xs text-zinc-400">ID: {job.id}</span>
-              <span className="w-1 h-1 rounded-full bg-zinc-300" />
-              <span className="text-xs text-zinc-400">Started {new Date(job.created_at!).toLocaleDateString()}</span>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-black text-zinc-900 truncate flex items-center gap-3">
+              {job.input_type === 'url' ? 'Source Content' : 'Project Idea'}
+              <span className="text-[10px] font-black text-white bg-zinc-900 px-2 py-0.5 rounded-full uppercase tracking-tighter shrink-0">
+                {job.input_type}
+              </span>
+            </h1>
+            <div className="flex items-center gap-3 mt-2">
+              <button 
+                onClick={() => setShowInputModal(true)}
+                className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 group transition-colors"
+              >
+                <Eye size={12} className="group-hover:scale-110 transition-transform" />
+                View Original Input
+              </button>
+              <span className="w-1 h-1 rounded-full bg-zinc-200 shrink-0" />
+              <div className="text-xs text-zinc-400 truncate max-w-[300px] italic">
+                {job.original_input}
+              </div>
+              <span className="w-1 h-1 rounded-full bg-zinc-200 shrink-0" />
+              <span className="text-xs text-zinc-400 shrink-0">Started {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Pending'}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -198,11 +264,7 @@ export default function ProjectDetailPage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={async () => {
-                  setIsUpdating(true);
-                  await retryIntakeAction(job.id);
-                  setIsUpdating(false);
-                }}
+                onClick={handleRetryIntake}
                 disabled={isUpdating}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
@@ -214,14 +276,7 @@ export default function ProjectDetailPage() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={async () => {
-                if (confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) {
-                  setIsDeleting(true);
-                  await deleteJobAction(job.id);
-                  setIsDeleting(false);
-                  router.push('/projects');
-                }
-              }}
+              onClick={handleDeleteProject}
               disabled={isDeleting}
               className="text-red-600 border-red-200 hover:bg-red-50"
             >
@@ -242,7 +297,7 @@ export default function ProjectDetailPage() {
             )}
             <div className="flex items-center justify-end gap-2">
               <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100 text-orange-600 border border-orange-200 uppercase tracking-wider">
-                {job.status!.replace('_', ' ')}
+                {job.status?.replace('_', ' ') || 'Processing'}
               </span>
               {job.is_retry && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200">
@@ -425,7 +480,8 @@ export default function ProjectDetailPage() {
                     variant="primary" 
                     size="sm" 
                     className="h-10 px-6 font-bold gap-2"
-                    onClick={() => handleSelectClick(selectedDraft, false)}
+                    disabled={!selectedDraft}
+                    onClick={() => selectedDraft && handleSelectClick(selectedDraft, false)}
                   >
                     <Zap size={16} />
                     Select & Adapt
@@ -451,11 +507,11 @@ export default function ProjectDetailPage() {
                       <div className="flex-1 overflow-y-auto p-8 lg:p-12 custom-scrollbar">
                         {viewMode === 'view' ? (
                           <div className="max-w-3xl mx-auto">
-                            <article className="prose prose-zinc prose-headings:text-zinc-900 prose-headings:font-black prose-h1:text-4xl prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6 prose-p:text-zinc-600 prose-p:leading-relaxed prose-li:text-zinc-600 prose-strong:text-zinc-900 prose-a:text-orange-600 prose-a:font-bold prose-a:no-underline hover:prose-a:underline prose-img:rounded-2xl prose-lg max-w-none">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <div className="prose prose-sm max-w-none prose-zinc prose-headings:font-black prose-headings:text-zinc-900 prose-p:text-zinc-600 prose-p:leading-relaxed prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-zinc-900 prose-ul:list-disc prose-ol:list-decimal">
+                              <ReactMarkdown>
                                 {editorContent}
                               </ReactMarkdown>
-                            </article>
+                            </div>
                           </div>
                         ) : (
                           <div className="h-full">
@@ -618,7 +674,7 @@ export default function ProjectDetailPage() {
 
                         <div className="flex-grow p-3 rounded-xl bg-zinc-50 border border-zinc-100 min-h-[120px] text-xs text-zinc-600 prose prose-xs leading-relaxed overflow-hidden">
                           {post?.content ? (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
+                            <ReactMarkdown>{post.content}</ReactMarkdown>
                           ) : (
                             <p className="italic text-zinc-400">Generating optimized content for this platform...</p>
                           )}
@@ -626,7 +682,13 @@ export default function ProjectDetailPage() {
 
                         <div className="flex items-center justify-between gap-2 mt-2">
                            {platform === 'twitter' ? (
-                             <Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-green-200 text-green-700 hover:bg-green-50 font-sans">
+                             <Button 
+                               variant="outline" 
+                               size="sm" 
+                               className="w-full text-[10px] h-8 border-green-200 text-green-700 hover:bg-green-50 font-sans"
+                               disabled={!post || post.status === 'published'}
+                               onClick={() => handleMarkAsPosted(post!.id)}
+                             >
                                <Check size={12} className="mr-1" /> Mark as Posted
                              </Button>
                            ) : (
@@ -636,15 +698,28 @@ export default function ProjectDetailPage() {
                                 size="sm" 
                                 className="flex-1 text-[10px] h-8 font-sans"
                                 disabled={!post || post.status === 'published'}
+                                onClick={async () => {
+                                  if (!post) return;
+                                  const time = window.prompt('Enter schedule time (YYYY-MM-DD HH:MM):');
+                                  if (time) {
+                                    const res = await schedulePostAction(post.id, time);
+                                    if (!res.success) alert(res.error || 'Failed to schedule');
+                                    else alert('Post scheduled successfully!');
+                                  }
+                                }}
                               >
-                                 <Calendar size={12} className="mr-1" /> Schedule
+                                 <Calendar size={12} className="mr-1" /> {post?.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
                                </Button>
                                <Button 
                                 variant="primary" 
                                 size="sm" 
                                 className="flex-1 text-[10px] h-8 font-sans"
                                 disabled={!post || post.status === 'published'}
-                                onClick={() => publishNowAction(job.id, platform as any, post!.id)}
+                                onClick={async () => {
+                                  const res = await publishNowAction(id as string, platform as any, post!.id);
+                                  if (!res.success) alert(res.error || 'Failed to publish');
+                                  else alert('Post published successfully!');
+                                }}
                               >
                                  <Send size={12} className="mr-1" /> Publish Now
                                </Button>
@@ -690,15 +765,7 @@ export default function ProjectDetailPage() {
               variant="primary"
               loading={isUpdating}
               disabled={!revisionNote.trim()}
-              onClick={async () => {
-                if (!revisionTargetId) return;
-                setIsUpdating(true);
-                await regenerateDraftsAction(job.id, revisionTargetId, revisionNote);
-                setShowRevisionModal(false);
-                setRevisionNote('');
-                setRevisionTargetId(null);
-                setIsUpdating(false);
-              }}
+              onClick={handleRegenerateDrafts}
               className="px-8 font-bold"
             >
               Start Revision
@@ -714,6 +781,31 @@ export default function ProjectDetailPage() {
             value={revisionNote}
             onChange={(e) => setRevisionNote(e.target.value)}
           />
+        </div>
+      </Modal>
+      
+      {/* ORIGINAL INPUT MODAL */}
+      <Modal
+        isOpen={showInputModal}
+        onClose={() => setShowInputModal(false)}
+        title={job.input_type === 'url' ? 'Source URL' : 'Content Idea'}
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl">
+            <p className="text-sm text-zinc-600 leading-relaxed font-sans whitespace-pre-wrap break-words">
+              {job.original_input}
+            </p>
+          </div>
+          {job.input_type === 'url' && (
+            <a 
+              href={job.original_input} 
+              target="_blank" 
+              className="inline-flex items-center gap-2 text-xs font-bold text-orange-600 hover:underline"
+            >
+              <Link2 size={14} />
+              Open source link in new tab
+            </a>
+          )}
         </div>
       </Modal>
 

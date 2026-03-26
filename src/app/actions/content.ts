@@ -77,7 +77,8 @@ export async function createJobAction(formData: {
       });
 
       if (!response.ok) {
-        throw new Error(`Automation error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`n8n intake failed: ${response.status} ${errorText}`);
       }
     } catch (err) {
       console.error('[Action] Webhook fire failed:', err);
@@ -119,14 +120,15 @@ export async function selectDraftAction(jobId: string, draftId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           job_id: jobId, 
-          selected_draft_id: draftId,
+          draft_id: draftId,
           user_id: user.id,
           user_email: user.email
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Adaptation error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`n8n webhook failed: ${response.status} ${errorText}`);
       }
     } catch (err) {
       console.error('[Action] Adaptation webhook failed:', err);
@@ -194,7 +196,8 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
       });
 
       if (!response.ok) {
-        throw new Error(`Regeneration error: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`n8n regeneration failed: ${response.status} ${errorText}`);
       }
     } catch (err) {
       console.error('[Action] Regeneration webhook failed:', err);
@@ -235,7 +238,7 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH;
   if (webhookUrl && webhookUrl !== 'placeholder' && user) {
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -246,6 +249,11 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
           user_email: user.email
         }),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`n8n webhook failed: ${response.status} ${errorText}`);
+      }
       
       // Update local status to prevent clicking twice
       await supabase.from('platform_posts').update({ status: 'ready_to_publish' }).eq('id', postId);
@@ -282,6 +290,22 @@ export async function cancelScheduleAction(postId: string) {
     .update({ 
       publish_at: null,
       status: 'pending'
+    })
+    .eq('id', postId);
+
+  return { success: !error, error: error?.message };
+}
+
+/**
+ * Manual Publication - Mark a post as already published
+ */
+export async function markAsPostedAction(postId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('platform_posts')
+    .update({ 
+      status: 'published',
+      published_at: new Date().toISOString()
     })
     .eq('id', postId);
 

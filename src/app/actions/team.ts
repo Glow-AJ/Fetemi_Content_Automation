@@ -19,6 +19,6 @@ export async function inviteTeamMemberAction(email: string) {
     return { success: true };
   } catch (error: any) {
     console.error('Error inviting team member:', error);
-    throw new Error(error.message || 'Failed to invite team member');
+    return { success: false, error: error.message || 'Failed to invite team member' };
   }
 }
