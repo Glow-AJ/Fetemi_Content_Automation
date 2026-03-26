@@ -105,7 +105,7 @@ CREATE TABLE public.article_drafts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) NOT NULL,
   job_id UUID REFERENCES public.content_jobs(id) ON DELETE CASCADE,
-  angle TEXT CHECK (angle IN ('how-to', 'thought-leadership', 'data-driven')),
+  angle TEXT,
   content TEXT,
   seo_validation_score JSONB,
   word_count INT,
