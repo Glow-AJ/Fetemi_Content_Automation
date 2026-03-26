@@ -61,8 +61,7 @@ export async function createJobAction(formData: {
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
-      // urlType is already calculated above
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -76,8 +75,13 @@ export async function createJobAction(formData: {
           is_retry: false
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Automation error: ${response.statusText}`);
+      }
     } catch (err) {
       console.error('[Action] Webhook fire failed:', err);
+      return { success: false, error: 'Content production could not be started. (Webhook failed)' };
     }
   }
 
@@ -110,7 +114,7 @@ export async function selectDraftAction(jobId: string, draftId: string) {
 
   if (webhookUrl && webhookUrl !== 'placeholder' && user) {
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -120,8 +124,15 @@ export async function selectDraftAction(jobId: string, draftId: string) {
           user_email: user.email
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Adaptation error: ${response.statusText}`);
+      }
     } catch (err) {
       console.error('[Action] Adaptation webhook failed:', err);
+      // Even if webhook fails, we revert the job status to allow retry
+      await supabase.from('content_jobs').update({ status: 'drafting' }).eq('id', jobId);
+      return { success: false, error: 'Could not trigger platform adaptation. Please check your connection.' };
     }
   }
 
@@ -168,7 +179,7 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -181,8 +192,19 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
           user_email: user.email
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Regeneration error: ${response.statusText}`);
+      }
     } catch (err) {
       console.error('[Action] Regeneration webhook failed:', err);
+      // Clean up the placeholder if it failed
+      if (newDraft?.id) await supabase.from('article_drafts').delete().eq('id', newDraft.id);
+      await supabase.from('content_jobs').update({ 
+        status: 'drafting', 
+        revision_count: currentCount // Revert count
+      }).eq('id', jobId);
+      return { success: false, error: 'Could not trigger AI regeneration. Please try again.' };
     }
   }
 

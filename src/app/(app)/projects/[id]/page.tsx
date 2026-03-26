@@ -5,11 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { 
-  ArrowLeft, Check, Clock, FileText, Linkedin, 
-  Twitter, Mail, Loader2, AlertCircle, Edit3, 
-  RefreshCcw, Send, Calendar, XCircle, Trash2, RotateCw,
-  MessageSquare, History, ImageIcon
+  ArrowLeft, Check, ChevronRight, Clock, Edit3, Eye, FileText, Globe, Link2, 
+  Loader2, MessageSquare, MoreHorizontal, PenTool, Plus, RefreshCw, Send, 
+  Trash2, Zap, AlertCircle, Share2, Image as ImageIcon, Calendar, Mail, Linkedin, Twitter
 } from 'lucide-react';
+import { SelectConfirmationModal } from '@/components/content/SelectConfirmationModal';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { 
@@ -17,15 +19,12 @@ import {
   regenerateDraftsAction, 
   updateDraftContentAction,
   publishNowAction,
-  schedulePostAction,
-  cancelScheduleAction,
   deleteJobAction,
   retryIntakeAction
 } from '@/app/actions/content';
 import { Modal } from '@/components/ui/Modal';
 import { RichTextEditor } from '@/components/ui/Editor';
 import type { Job, Draft, PlatformPost } from '@/types/database';
-import ReactMarkdown from 'react-markdown';
 
 
 const phases = [
@@ -53,17 +52,22 @@ export default function ProjectDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState<Job | null>(null);
-  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [activeDrafts, setActiveDrafts] = useState<Draft[]>([]);
+  const [revisionHistory, setRevisionHistory] = useState<Draft[]>([]);
   const [posts, setPosts] = useState<PlatformPost[]>([]);
   
   // UI States
   const [isUpdating, setIsUpdating] = useState(false);
-  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmingSelect, setIsConfirmingSelect] = useState(false);
+  const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
+  const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
+  const [editorContent, setEditorContent] = useState('');
   const [revisionNote, setRevisionNote] = useState('');
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionTargetId, setRevisionTargetId] = useState<string | null>(null);
   const [jobError, setJobError] = useState<any>(null);
+  const [isSelectingFromList, setIsSelectingFromList] = useState(false);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -77,7 +81,15 @@ export default function ProjectDetailPage() {
       ]);
 
       if (jobRes.data) setJob(jobRes.data);
-      if (draftsRes.data) setDrafts(draftsRes.data);
+      if (draftsRes.data) {
+        setActiveDrafts(draftsRes.data.filter(d => d.status === 'generated' || d.status === 'regenerating' || d.selected));
+        setRevisionHistory(draftsRes.data.filter(d => d.status === 'rejected'));
+        const currentlySelected = draftsRes.data.find(d => d.selected);
+        if (currentlySelected) {
+          setSelectedDraft(currentlySelected);
+          setEditorContent(currentlySelected.content || '');
+        }
+      }
       if (postsRes.data) setPosts(postsRes.data);
       if (errorRes.data) setJobError(errorRes.data);
       setLoading(false);
@@ -91,7 +103,20 @@ export default function ProjectDetailPage() {
         setJob(payload.new as Job);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'article_drafts', filter: `job_id=eq.${id}` }, () => {
-        supabase.from('article_drafts').select('*').eq('job_id', id).order('created_at', { ascending: false }).then(res => setDrafts(res.data || []));
+        supabase.from('article_drafts').select('*').eq('job_id', id).order('created_at', { ascending: false }).then(res => {
+          if (res.data) {
+            setActiveDrafts(res.data.filter(d => d.status === 'generated' || d.status === 'regenerating' || d.selected));
+            setRevisionHistory(res.data.filter(d => d.status === 'rejected'));
+            const currentlySelected = res.data.find(d => d.selected);
+            if (currentlySelected) {
+              setSelectedDraft(currentlySelected);
+              setEditorContent(currentlySelected.content || '');
+            } else {
+              setSelectedDraft(null);
+              setEditorContent('');
+            }
+          }
+        });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'platform_posts', filter: `job_id=eq.${id}` }, () => {
         supabase.from('platform_posts').select('*').eq('job_id', id).then(res => setPosts(res.data || []));
@@ -101,11 +126,39 @@ export default function ProjectDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [id, user, supabase]);
 
+  const handleSelectClick = (draft: Draft, fromList: boolean = false) => {
+    setSelectedDraft(draft);
+    setIsSelectingFromList(fromList);
+    setIsConfirmingSelect(true);
+  };
+
+  const handleConfirmSelect = async () => {
+    if (!selectedDraft || !job) return;
+    setIsConfirmingSelect(false);
+    const res = await selectDraftAction(job.id, selectedDraft.id);
+    if (!res.success) {
+      alert(res.error || 'Failed to select draft');
+    }
+  };
+
+  const handleEdit = (draft: Draft) => {
+    setSelectedDraft(draft);
+    setEditorContent(draft.content || '');
+    setViewMode('view'); // Default to view mode when opening
+  };
+
+  const saveContent = async (draftId: string) => {
+    setIsUpdating(true);
+    await updateDraftContentAction(draftId, editorContent);
+    setIsUpdating(false);
+    setViewMode('view');
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-        <Loader2 className="animate-spin text-[var(--color-primary)]" size={40} />
-        <p className="text-sm text-[var(--color-text-secondary)]">Syncing project data...</p>
+        <Loader2 className="animate-spin text-orange-500" size={40} />
+        <p className="text-sm text-zinc-500">Syncing project data...</p>
       </div>
     );
   }
@@ -115,7 +168,7 @@ export default function ProjectDetailPage() {
       <div className="text-center py-20">
         <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
         <h2 className="text-xl font-bold">Project Not Found</h2>
-        <p className="text-[var(--color-text-secondary)] mt-2">The project you are looking for does not exist or you don't have access.</p>
+        <p className="text-zinc-500 mt-2">The project you are looking for does not exist or you don't have access.</p>
         <Button onClick={() => router.push('/projects')} className="mt-6" variant="outline">Back to Projects</Button>
       </div>
     );
@@ -123,72 +176,21 @@ export default function ProjectDetailPage() {
 
   // Logic Helpers
   const currentPhaseIndex = phases.findIndex(p => p.key === job.status);
-  const activeDrafts = drafts.filter(d => d.status === 'generated' || d.status === 'regenerating' || d.selected);
-  const revisionHistory = drafts.filter(d => d.status === 'rejected');
-  const selectedDraft = drafts.find(d => d.selected);
-
-  if (editingDraftId) {
-    const draftToEdit = activeDrafts.find(d => d.id === editingDraftId) || selectedDraft;
-    return (
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="flex items-center justify-between mb-8">
-          <button 
-            onClick={() => setEditingDraftId(null)}
-            className="flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-zinc-900 transition-colors group cursor-pointer"
-          >
-            <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
-            Back to Project
-          </button>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-zinc-400 bg-zinc-100 px-3 py-1 rounded-full uppercase tracking-widest">Editor Mode</span>
-            <Button 
-              variant="primary"
-              loading={isUpdating}
-              onClick={async () => {
-                if (editingDraftId) {
-                  setIsUpdating(true);
-                  await updateDraftContentAction(editingDraftId, editContent);
-                  setEditingDraftId(null);
-                  setIsUpdating(false);
-                }
-              }}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto space-y-8 pb-20">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-black text-zinc-900 tracking-tight">{draftToEdit?.angle || 'Untitled Draft'}</h1>
-            <p className="text-zinc-400 font-medium">Editing the content of this article draft. Changes are saved to the database.</p>
-          </div>
-
-          <Card className="p-0 border-none shadow-2xl overflow-hidden ring-1 ring-black/5">
-            <RichTextEditor 
-              content={editContent}
-              onChange={setEditContent}
-            />
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
       {/* Header */}
       <div>
-        <button onClick={() => router.push('/projects')} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)] mb-4 cursor-pointer transition-colors">
+        <button onClick={() => router.push('/projects')} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 mb-4 cursor-pointer transition-colors">
           <ArrowLeft size={16} /> Back to Projects
         </button>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text)]">{job.original_input}</h1>
+            <h1 className="text-2xl font-bold text-zinc-900">{job.original_input}</h1>
             <div className="flex items-center gap-3 mt-1">
-              <span className="text-xs text-[var(--color-text-muted)]">ID: {job.id}</span>
+              <span className="text-xs text-zinc-400">ID: {job.id}</span>
               <span className="w-1 h-1 rounded-full bg-zinc-300" />
-              <span className="text-xs text-[var(--color-text-muted)]">Started {new Date(job.created_at!).toLocaleDateString()}</span>
+              <span className="text-xs text-zinc-400">Started {new Date(job.created_at!).toLocaleDateString()}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -204,7 +206,7 @@ export default function ProjectDetailPage() {
                 disabled={isUpdating}
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
-                <RotateCw size={14} className={`mr-2 ${isUpdating ? 'animate-spin' : ''}`} /> 
+                <RefreshCw size={14} className={isUpdating ? 'mr-2 animate-spin' : 'mr-2'} /> 
                 Retry Intake
               </Button>
             )}
@@ -214,13 +216,16 @@ export default function ProjectDetailPage() {
               size="sm" 
               onClick={async () => {
                 if (confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) {
+                  setIsDeleting(true);
                   await deleteJobAction(job.id);
+                  setIsDeleting(false);
                   router.push('/projects');
                 }
               }}
+              disabled={isDeleting}
               className="text-red-600 border-red-200 hover:bg-red-50"
             >
-              <Trash2 size={14} className="mr-2" /> 
+              <Trash2 size={14} className={isDeleting ? 'mr-2 animate-spin' : 'mr-2'} /> 
               Delete
             </Button>
 
@@ -231,12 +236,12 @@ export default function ProjectDetailPage() {
                 onClick={() => setShowRevisionModal(true)}
                 disabled={(job.revision_count || 0) >= 3}
               >
-                <RefreshCcw size={14} className="mr-2" /> 
+                <RefreshCw size={14} className="mr-2" /> 
                 Regenerate ({job.revision_count || 0}/3)
               </Button>
             )}
             <div className="flex items-center justify-end gap-2">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-primary-soft)] uppercase tracking-wider`}>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100 text-orange-600 border border-orange-200 uppercase tracking-wider">
                 {job.status!.replace('_', ' ')}
               </span>
               {job.is_retry && (
@@ -279,7 +284,7 @@ export default function ProjectDetailPage() {
                     {i < phases.length - 1 && <div className={`w-0.5 h-10 ${isDone ? 'bg-green-500' : 'bg-zinc-200'}`} />}
                   </div>
                   <div className="pb-6">
-                    <p className={`text-sm font-semibold ${isCurrent ? 'text-[var(--color-text)]' : isDone ? 'text-[var(--color-text-secondary)]' : 'text-zinc-400'}`}>{phase.label}</p>
+                    <p className={`text-sm font-semibold ${isCurrent ? 'text-zinc-900' : isDone ? 'text-zinc-500' : 'text-zinc-400'}`}>{phase.label}</p>
                     {isCurrent && <p className="text-[10px] font-bold text-orange-600 uppercase mt-0.5 tracking-tighter">In Progress</p>}
                     {isFailed && <p className="text-[10px] font-bold text-red-600 uppercase mt-0.5 tracking-tighter">Failed</p>}
                   </div>
@@ -293,13 +298,13 @@ export default function ProjectDetailPage() {
         {/* Drafts Section */}
         <div className="lg:col-span-3 space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-bold text-[var(--color-text)]">Article Drafts</h3>
+            <h3 className="text-lg font-bold text-zinc-900">Article Drafts</h3>
           </div>
 
           {!selectedDraft ? (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {activeDrafts.length > 0 ? (
-                activeDrafts.map((draft) => {
+                activeDrafts.map((draft, i) => {
                   if (draft.status === 'regenerating') {
                     return (
                       <Card key={draft.id} className="py-12 text-center border-dashed border-2 bg-zinc-50 border-orange-200">
@@ -313,79 +318,61 @@ export default function ProjectDetailPage() {
                   const score = (draft.seo_validation_score as any)?.score || 0;
                   const sc = seoColor(score);
                   return (
-                    <Card key={draft.id} className="border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-0">
-                      {draft.image_url && (
-                        <div className="w-full h-40 bg-zinc-100 overflow-hidden border-b border-zinc-50">
-                          <img src={draft.image_url} alt="Draft concept" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        </div>
-                      )}
-                      
-                      <div className="p-5 flex flex-col grow">
-                        <div className="flex items-start justify-between gap-4 mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors">
-                              <FileText size={16} />
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-bold text-zinc-900 leading-tight">{draft.angle || 'Draft Content'}</h4>
-                              <p className="text-[10px] text-zinc-400 mt-0.5 uppercase font-bold tracking-tight">
-                                {draft.word_count || 0} words • {(draft.seo_validation_score as any)?.readability || 'Standard'}
-                              </p>
-                            </div>
+                    <Card 
+                      key={draft.id} 
+                      onClick={() => handleEdit(draft)}
+                      className={`relative border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-4 cursor-pointer ${draft.selected ? 'ring-2 ring-orange-500' : ''}`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-orange-100 group-hover:text-orange-600 transition-colors">
+                            <FileText size={14} />
                           </div>
-                          <div className={`px-2 py-0.5 rounded text-[10px] font-bold ${sc.bg} ${sc.text} border border-current/10 whitespace-nowrap`}>
-                            SEO: {score || 0}%
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">Draft #{activeDrafts.length - i}</p>
+                            <p className="text-xs font-bold text-zinc-900 mt-1 line-clamp-1">{draft.angle || 'General Draft'}</p>
+                          </div>
+                        </div>
+                        <div className={`px-2 py-0.5 rounded text-[10px] font-black ${sc.bg} ${sc.text} border border-current/10`}>
+                           {score}%
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <p className="text-[11px] text-zinc-500 line-clamp-3 leading-relaxed mb-4 italic">
+                          "{draft.content?.substring(0, 120)}..."
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-zinc-50">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-medium">
+                            <Zap size={10} />
+                            {draft.word_count || 0}
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-medium">
+                            <Clock size={10} />
+                            Round {draft.revision_round || 0}
                           </div>
                         </div>
                         
-                        <div className="prose prose-xs max-w-none text-zinc-600 line-clamp-3 mb-4 flex-grow prose-headings:text-zinc-900 prose-a:text-blue-600 prose-strong:text-zinc-900">
-                           <ReactMarkdown>{draft.content || ''}</ReactMarkdown>
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-4 border-t border-zinc-50 mt-auto">
-                          <Button 
-                            variant="primary" 
-                            size="sm"
-                            className="flex-1 text-[10px] h-8 font-bold"
-                            onClick={async () => {
-                              setIsUpdating(true);
-                              await selectDraftAction(job.id, draft.id!);
-                              setIsUpdating(false);
-                            }}
-                            disabled={isUpdating}
-                          >
-                            Select & Adapt
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-[10px] h-8 px-3"
-                            onClick={() => {
-                              setEditingDraftId(draft.id!);
-                              setEditContent(draft.content || '');
-                            }}
-                          >
-                            <Edit3 size={14} />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-[10px] h-8 px-3"
-                            onClick={() => {
-                              setRevisionTargetId(draft.id!);
-                              setShowRevisionModal(true);
-                            }}
-                            disabled={(job.revision_count || 0) >= 3}
-                          >
-                            <RefreshCcw size={14} />
-                          </Button>
-                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 px-2 text-xs font-bold hover:bg-orange-50 hover:text-orange-600 opacity-0 group-hover:opacity-100 transition-all font-sans"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectClick(draft, true);
+                          }}
+                        >
+                          Select
+                        </Button>
                       </div>
                     </Card>
                   );
                 })
               ) : (
-                <Card className="py-20 text-center border-dashed border-2 bg-zinc-50">
+                <Card className="py-20 text-center border-dashed border-2 bg-zinc-50 w-full col-span-full">
                   <Loader2 className="animate-spin mx-auto text-zinc-400 mb-4" size={32} />
                   <p className="text-sm font-medium text-zinc-500">Generating initial drafts...</p>
                 </Card>
@@ -393,42 +380,158 @@ export default function ProjectDetailPage() {
             </div>
           ) : (
             /* Selected Draft View */
-            <Card className="border-none shadow-sm !bg-white p-0 overflow-hidden ring-1 ring-black/5">
-               {selectedDraft.image_url && (
-                 <div className="w-full h-64 bg-zinc-100 overflow-hidden">
-                    <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover" />
-                 </div>
-               )}
-               
-               <div className="p-8 lg:p-12">
-                 <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <h4 className="text-2xl font-black text-zinc-900 tracking-tight leading-tight mb-2">{selectedDraft.angle || 'Selected Draft'}</h4>
-                      <p className="text-xs text-zinc-400 font-bold uppercase tracking-widest">{selectedDraft.word_count || 0} WORDS • {new Date(selectedDraft.created_at!).toLocaleDateString()}</p>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col">
+              {/* Editor Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setSelectedDraft(null)}
+                    className="p-2 hover:bg-zinc-100 rounded-full transition-colors group"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-zinc-400 group-hover:text-zinc-900" />
+                  </button>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-2 py-0.5 rounded">
+                        Draft View
+                      </span>
+                      <span className="text-xs text-zinc-400 font-medium">
+                        Round #{selectedDraft.revision_round || 0}
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 shadow-sm uppercase tracking-wider">
-                      <Check size={12} strokeWidth={3} /> Selected
-                    </span>
-                 </div>
-                 
-                 <div className="prose prose-zinc prose-lg max-w-none text-zinc-700 leading-relaxed prose-headings:font-black prose-headings:text-zinc-900 prose-headings:tracking-tight prose-a:text-blue-600 prose-a:font-bold hover:prose-a:underline prose-strong:text-zinc-900 prose-img:rounded-3xl">
-                    <ReactMarkdown>{selectedDraft.content || ''}</ReactMarkdown>
-                 </div>
-                 
-                 <div className="mt-12 pt-8 border-t border-zinc-100 flex justify-end">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setEditingDraftId(selectedDraft.id!);
-                        setEditContent(selectedDraft.content || '');
-                      }}
-                      className="px-8 font-bold"
-                    >
-                      <Edit3 size={16} className="mr-2" /> Edit Final Content
-                    </Button>
-                 </div>
-               </div>
-            </Card>
+                    <h2 className="text-xl font-black text-zinc-900">{selectedDraft.angle || 'Article Draft'}</h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                   <div className="flex items-center bg-zinc-100 p-1 rounded-lg mr-2">
+                      <button 
+                        onClick={() => setViewMode('view')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                      >
+                        <Eye size={14} />
+                        View
+                      </button>
+                      <button 
+                        onClick={() => setViewMode('edit')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                      >
+                        <Edit3 size={14} />
+                        Edit
+                      </button>
+                   </div>
+
+                  <Button 
+                    variant="primary" 
+                    size="sm" 
+                    className="h-10 px-6 font-bold gap-2"
+                    onClick={() => handleSelectClick(selectedDraft, false)}
+                  >
+                    <Zap size={16} />
+                    Select & Adapt
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 flex-1 min-h-0">
+                {/* Content Area */}
+                <div className="xl:col-span-3 flex flex-col min-h-0">
+                   <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden flex flex-col h-full shadow-sm">
+                      {/* Featured Image */}
+                      {selectedDraft.image_url && (
+                        <div className="w-full h-80 bg-zinc-100 overflow-hidden border-b border-zinc-100 relative group">
+                           <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover" />
+                           <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg border border-white/50 text-[10px] font-bold text-zinc-900 flex items-center gap-2">
+                              <ImageIcon size={14} />
+                              Featured Image
+                           </div>
+                        </div>
+                      )}
+
+                      <div className="flex-1 overflow-y-auto p-8 lg:p-12 custom-scrollbar">
+                        {viewMode === 'view' ? (
+                          <div className="max-w-3xl mx-auto">
+                            <article className="prose prose-zinc prose-headings:text-zinc-900 prose-headings:font-black prose-h1:text-4xl prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6 prose-p:text-zinc-600 prose-p:leading-relaxed prose-li:text-zinc-600 prose-strong:text-zinc-900 prose-a:text-orange-600 prose-a:font-bold prose-a:no-underline hover:prose-a:underline prose-img:rounded-2xl prose-lg max-w-none">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {editorContent}
+                              </ReactMarkdown>
+                            </article>
+                          </div>
+                        ) : (
+                          <div className="h-full">
+                            <RichTextEditor 
+                              content={editorContent} 
+                              onChange={setEditorContent} 
+                            />
+                          </div>
+                        )}
+                      </div>
+                   </div>
+                </div>
+
+                {/* Sidebar Info */}
+                <div className="xl:col-span-1 space-y-6">
+                  <Card className="border-none bg-zinc-50/50 p-6">
+                     <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-4">Draft Metrics</h3>
+                     <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                           <span className="text-xs text-zinc-500 font-medium">Word Count</span>
+                           <span className="text-sm font-bold text-zinc-900">{selectedDraft.word_count || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                           <span className="text-xs text-zinc-500 font-medium">SEO Score</span>
+                           <div className={`px-2 py-0.5 rounded text-[10px] font-black ${seoColor((selectedDraft.seo_validation_score as any)?.score || 0).bg} ${seoColor((selectedDraft.seo_validation_score as any)?.score || 0).text}`}>
+                              {(selectedDraft.seo_validation_score as any)?.score || 0}%
+                           </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                           <span className="text-xs text-zinc-500 font-medium">Readability</span>
+                           <span className="text-xs font-bold text-zinc-900">{(selectedDraft.seo_validation_score as any)?.readability || 'Standard'}</span>
+                        </div>
+                     </div>
+                  </Card>
+
+                  <div className="p-4 bg-orange-50/30 border border-orange-100 rounded-2xl">
+                     <div className="flex gap-3 items-start mb-4">
+                        <div className="p-2 bg-orange-100 rounded-xl">
+                           <MessageSquare className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <div>
+                           <p className="text-xs font-bold text-orange-900">Need changes?</p>
+                           <p className="text-[10px] text-orange-700 leading-relaxed mt-0.5">Tell the AI what to improve. Max 3 rounds.</p>
+                        </div>
+                     </div>
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       className="w-full bg-white hover:bg-orange-50 border-orange-100 text-orange-600 font-black h-9 text-xs"
+                       onClick={() => {
+                          setRevisionTargetId(selectedDraft.id);
+                          setShowRevisionModal(true);
+                       }}
+                     >
+                       Request Revision
+                     </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botton Toolbar for Edit mode */}
+              {viewMode === 'edit' && (
+                <div className="mt-6 flex justify-end gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <Button variant="ghost" className="font-bold text-zinc-500 font-sans" onClick={() => setViewMode('view')}>
+                    Discard Edits
+                  </Button>
+                  <Button 
+                    variant="primary" 
+                    className="font-bold px-8 font-sans"
+                    onClick={() => saveContent(selectedDraft.id)}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Job Errors Display */}
@@ -450,7 +553,7 @@ export default function ProjectDetailPage() {
                             target="_blank" 
                             className="text-[10px] font-bold text-red-600 hover:outline rounded px-2 py-1 bg-red-100/50 inline-flex items-center gap-1 transition-all"
                           >
-                             View n8n Debug Log <ArrowLeft size={10} className="rotate-180" />
+                             View n8n Debug Log <ArrowLeft size={10} className="rotate-180 ml-1" />
                           </a>
                         </div>
                      )}
@@ -463,12 +566,12 @@ export default function ProjectDetailPage() {
           {revisionHistory.length > 0 && (
             <div className="mt-12 space-y-4">
                <div className="flex items-center gap-2 text-zinc-400">
-                  <History size={16} />
+                  <MessageSquare size={16} />
                   <h3 className="text-sm font-bold uppercase tracking-widest">Revision History</h3>
                </div>
                <div className="space-y-4">
                   {revisionHistory.map((rev) => (
-                    <Card key={rev.id} className="!bg-zinc-50 border-zinc-200 opacity-75 grayscale hover:grayscale-0 transition-all">
+                    <Card key={rev.id} className="!bg-zinc-50 border-zinc-200 opacity-75 grayscale hover:grayscale-0 transition-all p-6">
                        <div className="flex items-center justify-between mb-3 text-xs font-bold text-zinc-400 uppercase tracking-tighter">
                           <span>Round #{rev.revision_round || 0}</span>
                           <span>{new Date(rev.created_at || '').toLocaleDateString()}</span>
@@ -488,9 +591,9 @@ export default function ProjectDetailPage() {
           )}
 
           {/* Platform Status (Shown when Adaptation begins) */}
-          {currentPhaseIndex >= 4 && (
+          {(currentPhaseIndex >= 5 || job.status === 'adapting' || job.status === 'ready_to_publish' || job.status === 'published') && (
             <div className="mt-8 space-y-4">
-               <h3 className="text-lg font-bold text-[var(--color-text)]">Platform Previews</h3>
+               <h3 className="text-lg font-bold text-zinc-900">Platform Previews</h3>
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {['linkedin', 'twitter', 'email'].map((platform) => {
                     const post = posts.find(p => p.platform === platform);
@@ -498,7 +601,7 @@ export default function ProjectDetailPage() {
                     const Icon = iconMap[platform as keyof typeof iconMap];
 
                     return (
-                      <Card key={platform} className="flex flex-col gap-3 group">
+                      <Card key={platform} className="flex flex-col gap-3 group p-5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Icon size={18} className="text-zinc-600" />
@@ -515,7 +618,7 @@ export default function ProjectDetailPage() {
 
                         <div className="flex-grow p-3 rounded-xl bg-zinc-50 border border-zinc-100 min-h-[120px] text-xs text-zinc-600 prose prose-xs leading-relaxed overflow-hidden">
                           {post?.content ? (
-                            <ReactMarkdown>{post.content}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
                           ) : (
                             <p className="italic text-zinc-400">Generating optimized content for this platform...</p>
                           )}
@@ -523,7 +626,7 @@ export default function ProjectDetailPage() {
 
                         <div className="flex items-center justify-between gap-2 mt-2">
                            {platform === 'twitter' ? (
-                             <Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-green-200 text-green-700 hover:bg-green-50">
+                             <Button variant="outline" size="sm" className="w-full text-[10px] h-8 border-green-200 text-green-700 hover:bg-green-50 font-sans">
                                <Check size={12} className="mr-1" /> Mark as Posted
                              </Button>
                            ) : (
@@ -531,7 +634,7 @@ export default function ProjectDetailPage() {
                                <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="flex-1 text-[10px] h-8"
+                                className="flex-1 text-[10px] h-8 font-sans"
                                 disabled={!post || post.status === 'published'}
                               >
                                  <Calendar size={12} className="mr-1" /> Schedule
@@ -539,9 +642,9 @@ export default function ProjectDetailPage() {
                                <Button 
                                 variant="primary" 
                                 size="sm" 
-                                className="flex-1 text-[10px] h-8"
+                                className="flex-1 text-[10px] h-8 font-sans"
                                 disabled={!post || post.status === 'published'}
-                                onClick={() => publishNowAction(id as string, platform as any, post!.id!)}
+                                onClick={() => publishNowAction(job.id, platform as any, post!.id)}
                               >
                                  <Send size={12} className="mr-1" /> Publish Now
                                </Button>
@@ -557,36 +660,56 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
+      {/* Select Confirmation Modal */}
+      {selectedDraft && (
+        <SelectConfirmationModal
+          isOpen={isConfirmingSelect}
+          onClose={() => {
+            setIsConfirmingSelect(false);
+            if (isSelectingFromList) setSelectedDraft(null); // Reset if coming from list and cancelled
+          }}
+          onConfirm={handleConfirmSelect}
+          onViewDraft={() => {
+            setIsConfirmingSelect(false);
+            handleEdit(selectedDraft);
+          }}
+          draftTitle={selectedDraft.angle || ''}
+          isFromList={isSelectingFromList} 
+        />
+      )}
+
       {/* REVISION MODAL */}
       <Modal
         isOpen={showRevisionModal}
         onClose={() => setShowRevisionModal(false)}
         title="Request Revision"
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowRevisionModal(false)}>Cancel</Button>
+          <div className="flex justify-end gap-3 w-full">
+            <Button variant="ghost" onClick={() => setShowRevisionModal(false)} className="font-bold">Cancel</Button>
             <Button 
               variant="primary"
               loading={isUpdating}
+              disabled={!revisionNote.trim()}
               onClick={async () => {
                 if (!revisionTargetId) return;
                 setIsUpdating(true);
-                await regenerateDraftsAction(id as string, revisionTargetId, revisionNote);
+                await regenerateDraftsAction(job.id, revisionTargetId, revisionNote);
                 setShowRevisionModal(false);
                 setRevisionNote('');
                 setRevisionTargetId(null);
                 setIsUpdating(false);
               }}
+              className="px-8 font-bold"
             >
               Start Revision
             </Button>
-          </>
+          </div>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-zinc-500">Tell us what to change about this draft. Be specific for better results (e.g. &quot;More professional tone&quot; or &quot;Focus on technical details&quot;).</p>
           <textarea
-            className="w-full h-32 p-4 rounded-2xl border border-zinc-200 bg-zinc-50 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all font-sans leading-relaxed"
+            className="w-full h-32 p-4 rounded-2xl border border-zinc-200 bg-zinc-50 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all font-sans leading-relaxed"
             placeholder="Type your instructions here..."
             value={revisionNote}
             onChange={(e) => setRevisionNote(e.target.value)}
