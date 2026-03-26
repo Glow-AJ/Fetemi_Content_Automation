@@ -106,12 +106,19 @@ export async function selectDraftAction(jobId: string, draftId: string) {
 
   // 3. Trigger Adaptation Webhook
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_SELECT_DRAFT;
-  if (webhookUrl && webhookUrl !== 'placeholder') {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (webhookUrl && webhookUrl !== 'placeholder' && user) {
     try {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: jobId, selected_draft_id: draftId }),
+        body: JSON.stringify({ 
+          job_id: jobId, 
+          selected_draft_id: draftId,
+          user_id: user.id,
+          user_email: user.email
+        }),
       });
     } catch (err) {
       console.error('[Action] Adaptation webhook failed:', err);
@@ -169,7 +176,9 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
           draft_id: newDraft?.id, // Pass the ID of the placeholder for n8n to update
           revision_instructions: instructions,
           is_regeneration: true,
-          revision_round: currentCount + 1
+          revision_round: currentCount + 1,
+          user_id: user.id,
+          user_email: user.email
         }),
       });
     } catch (err) {
@@ -199,14 +208,21 @@ export async function updateDraftContentAction(draftId: string, content: string)
  */
 export async function publishNowAction(jobId: string, platform: 'linkedin' | 'email', postId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH;
-  if (webhookUrl && webhookUrl !== 'placeholder') {
+  if (webhookUrl && webhookUrl !== 'placeholder' && user) {
     try {
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: jobId, platform, post_id: postId }),
+        body: JSON.stringify({ 
+          job_id: jobId, 
+          platform, 
+          post_id: postId,
+          user_id: user.id,
+          user_email: user.email
+        }),
       });
       
       // Update local status to prevent clicking twice

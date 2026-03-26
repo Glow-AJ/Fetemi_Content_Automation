@@ -451,8 +451,12 @@ export default function ProjectDetailPage() {
                           </span>
                         </div>
 
-                        <div className="flex-grow p-3 rounded-xl bg-zinc-50 border border-zinc-100 min-h-[100px] text-xs text-zinc-600 line-clamp-4">
-                          {post?.content || 'Generating optimized content for this platform...'}
+                        <div className="flex-grow p-3 rounded-xl bg-zinc-50 border border-zinc-100 min-h-[120px] text-xs text-zinc-600 prose prose-xs leading-relaxed overflow-hidden">
+                          {post?.content ? (
+                            <ReactMarkdown>{post.content}</ReactMarkdown>
+                          ) : (
+                            <p className="italic text-zinc-400">Generating optimized content for this platform...</p>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between gap-2 mt-2">

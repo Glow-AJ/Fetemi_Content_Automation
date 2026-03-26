@@ -156,6 +156,7 @@ export const RichTextEditor = ({ content, onChange, editable = true }: RichTextE
 
   // Sync content if it changes externally
   useEffect(() => {
+    // @ts-ignore - tiptap-markdown type issue
     if (editor && content !== editor.storage.markdown.getMarkdown()) {
       editor.commands.setContent(content);
     }
