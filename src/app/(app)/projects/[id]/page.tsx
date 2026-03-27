@@ -72,6 +72,8 @@ export default function ProjectDetailPage() {
   const [jobError, setJobError] = useState<{ error_description?: string; execution_url?: string } | null>(null);
   const [isSelectingFromList, setIsSelectingFromList] = useState(false);
   const [showInputModal, setShowInputModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [viewState, setViewState] = useState<'overview' | 'editor'>('overview');
 
   // Multi-editor states
   const [contents, setContents] = useState<Record<string, string>>({
@@ -195,7 +197,9 @@ export default function ProjectDetailPage() {
   const handleEdit = (draft: Draft) => {
     setSelectedDraft(draft);
     setContents(prev => ({ ...prev, article: draft.content || '' }));
-    setViewModes(prev => ({ ...prev, article: 'view' })); // Default to view mode when opening
+    setViewModes(prev => ({ ...prev, article: 'view' }));
+    setViewState('editor');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const saveContent = async (section: string, id: string) => {
@@ -236,10 +240,10 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handlePublishNow = async (postId: string) => {
-    if (!window.confirm('Are you sure you want to publish this now?')) return;
+  const handlePublishNow = async (postId: string, platform: 'linkedin' | 'email') => {
+    if (!window.confirm(`Are you sure you want to publish to ${platform} now?`)) return;
     setIsUpdating(true);
-    const res = await publishNowAction(id as string, 'linkedin', postId); // Note: platform logic will depend on n8n
+    const res = await publishNowAction(id as string, platform, postId);
     setIsUpdating(false);
     if (res.success) alert('Post published successfully!');
     else alert(res.error || 'Failed to publish post');
@@ -254,12 +258,14 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteProject = async () => {
-    if (!window.confirm('Are you sure you want to delete this project? This will remove all drafts and platform posts.')) return;
     setIsDeleting(true);
     const res = await deleteJobAction(id as string);
     setIsDeleting(false);
     if (res.success) router.push('/projects');
-    else alert(res.error || 'Failed to delete project');
+    else {
+      alert(res.error || 'Failed to delete project');
+      setShowDeleteModal(false);
+    }
   };
 
   const handleRegenerateDrafts = async () => {
@@ -288,16 +294,15 @@ export default function ProjectDetailPage() {
     else alert('Success! Post marked as published.');
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-        <Loader2 className="animate-spin text-orange-500" size={40} />
-        <p className="text-sm text-zinc-500">Syncing project data...</p>
-      </div>
-    );
-  }
-
-  if (!job) {
+  if (loading || !job) {
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+          <Loader2 className="animate-spin text-orange-500" size={40} />
+          <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Syncing with Supabase...</p>
+        </div>
+      );
+    }
     return (
       <div className="text-center py-20">
         <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
@@ -321,10 +326,14 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
-      {/* Sticky Back Header - Pinned to top */}
-      <div className="sticky top-0 z-50 bg-[#FAFAF9]/95 backdrop-blur-md py-4 -mx-4 px-4 border-b border-zinc-100 flex items-center justify-between">
-        <button onClick={() => router.push('/projects')} className="flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-zinc-900 transition-colors">
-          <ArrowLeft size={16} /> Back to Projects
+      {/* Header - Stagnant (Not Sticky) */}
+      <div className="flex items-center justify-between py-4 border-b border-zinc-100 mb-6">
+        <button 
+          onClick={() => viewState === 'editor' ? setViewState('overview') : router.push('/projects')} 
+          className="flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-zinc-900 transition-colors"
+        >
+          <ArrowLeft size={16} /> 
+          {viewState === 'editor' ? 'Back to Project Detail' : 'Back to Projects'}
         </button>
         <div className="flex items-center gap-2">
            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider ${
@@ -375,7 +384,7 @@ export default function ProjectDetailPage() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleDeleteProject}
+              onClick={() => setShowDeleteModal(true)}
               disabled={isDeleting}
               className="text-red-600 border-red-200 hover:bg-red-50 h-10 px-4 font-bold"
             >
@@ -386,56 +395,58 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 ${!selectedDraft ? 'lg:grid-cols-4' : ''} gap-8 items-start`}>
-        {/* Status Timeline - STICKY (Hide when draft is selected) */}
-        {!selectedDraft && (
-          <aside className="lg:col-span-1 sticky top-8 self-start transition-all animate-in slide-in-from-left duration-300">
-            <Card className="border-none shadow-sm !bg-zinc-50/50 p-6">
-              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-8">Pipeline Status</h3>
-            <div className="space-y-0">
-              {phases.map((phase, i) => {
-                const isDone = i < currentPhaseIndex || job.status === 'published';
-                const isCurrent = i === currentPhaseIndex && job.status !== 'published';
-                const isFailed = job.status === 'failed' && i === currentPhaseIndex;
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+        {/* Status Timeline - Always visible in Overview */}
+        {viewState === 'overview' && (
+          <aside className="lg:col-span-1 border-r border-zinc-100 pr-8">
+            <div className="sticky top-8 space-y-8">
+              <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Pipeline Status</h3>
+              <div className="space-y-0">
+                {phases.map((phase, i) => {
+                  const isDone = i < currentPhaseIndex || job.status === 'published';
+                  const isCurrent = i === currentPhaseIndex && job.status !== 'published';
+                  const isFailed = job.status === 'failed' && i === currentPhaseIndex;
 
-              return (
-                <div key={phase.key} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${
-                      isDone ? 'bg-green-500 border-green-500 text-white' : 
-                      isFailed ? 'bg-red-500 border-red-500 text-white' :
-                      isCurrent ? 'bg-orange-100 border-orange-500 text-orange-600' : 
-                      'bg-white border-zinc-200 text-zinc-300'
-                    }`}>
-                      {isDone ? <Check size={12} strokeWidth={3} /> : <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-orange-500' : 'bg-transparent'}`} />}
+                  return (
+                    <div key={phase.key} className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${
+                          isDone ? 'bg-green-500 border-green-500 text-white' : 
+                          isFailed ? 'bg-red-500 border-red-500 text-white' :
+                          isCurrent ? 'bg-orange-100 border-orange-500 text-orange-600' : 
+                          'bg-white border-zinc-200 text-zinc-300'
+                        }`}>
+                          {isDone ? <Check size={12} strokeWidth={3} /> : <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-orange-500' : 'bg-transparent'}`} />}
+                        </div>
+                        {i < phases.length - 1 && <div className={`w-0.5 h-10 ${isDone ? 'bg-green-500' : 'bg-zinc-200'}`} />}
+                      </div>
+                      <div className="pb-6">
+                        <p className={`text-sm font-semibold ${isCurrent ? 'text-zinc-900' : isDone ? 'text-zinc-500' : 'text-zinc-400'}`}>{phase.label}</p>
+                        {isCurrent && <p className="text-[10px] font-bold text-orange-600 uppercase mt-0.5 tracking-tighter">In Progress</p>}
+                        {isFailed && <p className="text-[10px] font-bold text-red-600 uppercase mt-0.5 tracking-tighter">Failed</p>}
+                      </div>
                     </div>
-                    {i < phases.length - 1 && <div className={`w-0.5 h-10 ${isDone ? 'bg-green-500' : 'bg-zinc-200'}`} />}
-                  </div>
-                  <div className="pb-6">
-                    <p className={`text-sm font-semibold ${isCurrent ? 'text-zinc-900' : isDone ? 'text-zinc-500' : 'text-zinc-400'}`}>{phase.label}</p>
-                    {isCurrent && <p className="text-[10px] font-bold text-orange-600 uppercase mt-0.5 tracking-tighter">In Progress</p>}
-                    {isFailed && <p className="text-[10px] font-bold text-red-600 uppercase mt-0.5 tracking-tighter">Failed</p>}
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
             </div>
-            </Card>
           </aside>
         )}
 
-        {/* Drafts Section */}
-        <div className={`${!selectedDraft ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-12 h-full`}>
-          {!selectedDraft ? (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-zinc-900 uppercase tracking-widest">Select an Article Draft</h3>
-                <div className="text-xs text-zinc-400 font-medium">3 unique angles generated</div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* Dashoard/Overview Section */}
+        <div className={`${viewState === 'overview' ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-12 h-full`}>
+          {viewState === 'overview' ? (
+            <div className="space-y-16">
+              {/* 1. Article Drafts */}
+              <section>
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-bold text-zinc-900 uppercase tracking-widest">Article Drafts</h3>
+                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{activeDrafts.length} Unique Angles</div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {activeDrafts.length > 0 ? (
                   activeDrafts.map((draft, i) => {
-                    const isSelectedElsewhere = false; // Always false in this branch
+                    const isSelectedElsewhere = activeDrafts.some(d => d.selected) && !draft.selected;
                     if (draft.status === 'regenerating') {
                       return (
                         <Card key={draft.id} className="py-12 text-center border-dashed border-2 bg-zinc-50 border-orange-200">
@@ -505,61 +516,162 @@ export default function ProjectDetailPage() {
                     <p className="text-xs text-zinc-500 mt-2 font-medium">Sit tight, our AI is analyzing your intake.</p>
                   </Card>
                 )}
-              </div>
+                </div>
+              </section>
+
+              {/* 2. Platform Adaptations (Visible after draft selection) */}
+              {(posts.length > 0 || job.status === 'adapting' || job.status === 'ready_to_publish' || job.status === 'published') && (
+                <section className="animate-in fade-in slide-in-from-top-4 duration-700">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-xl font-bold text-zinc-900 uppercase tracking-widest">Platform Adaptations</h3>
+                    <div className="flex items-center gap-2">
+                       <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                       <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Live Adaptations</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {['linkedin', 'twitter', 'email'].map((platform) => {
+                      const post = posts.find(p => p.platform === platform);
+                      const iconMap = { linkedin: Linkedin, twitter: Twitter, email: Mail };
+                      const Icon = iconMap[platform as keyof typeof iconMap];
+                      const platformKey = platform === 'email' ? 'newsletter' : platform;
+
+                      if (!post && job.status !== 'adapting') return null;
+
+                      return (
+                        <Card 
+                          key={platform} 
+                          className="relative border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-6 cursor-pointer"
+                          onClick={() => post && (setSelectedDraft(activeDrafts.find(d => d.selected) || null), setViewState('editor'), window.scrollTo({ top: 0, behavior: 'smooth' }))}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${
+                                platform === 'linkedin' ? 'bg-[#0077b5]' : 
+                                platform === 'twitter' ? 'bg-zinc-900' : 'bg-orange-500'
+                              }`}>
+                                <Icon size={18} />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">Drafting</p>
+                                <p className="text-base font-black text-zinc-900 mt-1 capitalize">{platform === 'email' ? 'Newsletter' : platform}</p>
+                              </div>
+                            </div>
+                            {post && (
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border border-current/10 ${
+                                post.status === 'published' ? 'bg-green-100 text-green-600' : 
+                                post.status === 'scheduled' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                              }`}>
+                                {post.status}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex-1">
+                            {post ? (
+                              <p className="text-sm text-zinc-500 line-clamp-3 leading-relaxed mb-6 italic">
+                                {post.content?.substring(0, 120).replace(/#+/g, '')}...
+                              </p>
+                            ) : (
+                              <div className="flex items-center gap-2 py-8 text-zinc-400">
+                                <Loader2 className="animate-spin" size={16} />
+                                <span className="text-xs font-bold uppercase tracking-tighter">AI Adapting...</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {post && (
+                            <div className="flex flex-col gap-2 pt-4 border-t border-zinc-50" onClick={(e) => e.stopPropagation()}>
+                              {platform === 'twitter' ? (
+                                <Button 
+                                  variant="primary" 
+                                  size="sm" 
+                                  className="w-full h-8 text-[10px] font-black uppercase bg-zinc-900 group-hover:bg-black"
+                                  disabled={post.status === 'published'}
+                                  onClick={() => handleMarkAsPosted(post.id)}
+                                >
+                                  {post.status === 'published' ? 'Marked as Posted' : 'Mark as Posted'}
+                                </Button>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-8 text-[9px] font-black uppercase tracking-tighter border-zinc-200"
+                                    disabled={post.status === 'published'}
+                                    onClick={() => openScheduleModal(post.id, platform)}
+                                  >
+                                    Schedule
+                                  </Button>
+                                  <Button 
+                                    variant="primary" 
+                                    size="sm" 
+                                    className="h-8 text-[9px] font-black uppercase tracking-tighter"
+                                    disabled={post.status === 'published'}
+                                    onClick={() => handlePublishNow(post.id, platform as 'linkedin' | 'email')}
+                                  >
+                                    Publish
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
             </div>
           ) : (
             /* Selected Multi-Editor Workspace */
             <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-16">
-              {/* 1. MAIN ARTICLE SECTION */}
-              <div className="section-container">
-                <div className="flex items-center justify-between mb-6 group">
-                   <div className="flex items-center gap-4 cursor-pointer" onClick={() => toggleSection('article')}>
-                      <div className="p-3 bg-zinc-900 rounded-2xl text-white shadow-lg shadow-zinc-200">
-                        <FileText size={24} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] bg-orange-100/50 px-2 py-0.5 rounded leading-none">Phase 1</span>
-                          <span className="text-xs text-zinc-400 font-bold uppercase tracking-tighter">Round #{selectedDraft.revision_round || 0}</span>
+              {selectedDraft && (
+                <>
+                  {/* Article Editor */}
+                  <div className="section-container">
+                    <div className="flex items-center justify-between mb-8 group">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-zinc-900 rounded-2xl text-white shadow-lg">
+                          <FileText size={24} />
                         </div>
-                        <h2 className="text-2xl font-black text-zinc-900 leading-none">Master Article Draft</h2>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] bg-orange-100/50 px-2 py-0.5 rounded leading-none">Draft Editor</span>
+                            <span className="text-xs text-zinc-400 font-bold uppercase tracking-tighter">Round #{selectedDraft.revision_round || 0}</span>
+                          </div>
+                          <h2 className="text-3xl font-black text-zinc-900 leading-tight">{selectedDraft.angle || 'Article Draft'}</h2>
+                        </div>
                       </div>
-                      <ChevronRight className={`w-6 h-6 text-zinc-300 transition-transform ${expandedSections.article ? 'rotate-90' : ''}`} />
-                   </div>
 
-                   <div className="flex items-center bg-zinc-100 p-1 rounded-xl shadow-inner">
-                      <button 
-                        onClick={() => setViewMode('article', 'view')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black transition-all ${viewModes.article === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                      >
-                        <Eye size={14} /> VIEW
-                      </button>
-                      <button 
-                        onClick={() => setViewMode('article', 'edit')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black transition-all ${viewModes.article === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                      >
-                        <Edit3 size={14} /> EDIT
-                      </button>
-                   </div>
-                </div>
+                      <div className="flex items-center bg-zinc-100 p-1 rounded-xl shadow-inner">
+                        <button 
+                          onClick={() => setViewMode('article', 'view')}
+                          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-black transition-all ${viewModes.article === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          <Eye size={14} /> VIEW
+                        </button>
+                        <button 
+                          onClick={() => setViewMode('article', 'edit')}
+                          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-black transition-all ${viewModes.article === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
+                        >
+                          <Edit3 size={14} /> EDIT
+                        </button>
+                      </div>
+                    </div>
 
-                {expandedSections.article && (
-                  <div className="grid grid-cols-1 xl:grid-cols-4 gap-12 animate-in fade-in duration-500">
-                    <div className="xl:col-span-3">
-                       <div className="bg-white border-2 border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-xl shadow-zinc-200/50 flex flex-col min-h-[600px]">
+                    <div className="grid grid-cols-1 xl:grid-cols-4 gap-12">
+                      <div className="xl:col-span-3">
+                        <div className="bg-white border-2 border-zinc-100 rounded-[3rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
                           {selectedDraft.image_url && (
-                            <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group">
-                               <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                               <div className="absolute top-8 left-8 bg-zinc-900/90 backdrop-blur-md px-4 py-2 rounded-xl text-[11px] font-black text-white flex items-center gap-2 border border-white/10 shadow-2xl">
-                                  <ImageIcon size={14} strokeWidth={3} className="text-orange-500" />
-                                  FEATURED VISUAL
-                               </div>
+                            <div className="w-full h-[450px] bg-zinc-100 overflow-hidden relative group">
+                              <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                             </div>
                           )}
-
-                          <div className="flex-1 p-10 lg:p-16">
+                          <div className="flex-1 p-10 lg:p-20">
                             {viewModes.article === 'view' ? (
-                              <div className="max-w-3xl mx-auto prose prose-zinc prose-sm md:prose-base max-w-none selection:bg-orange-100">
+                              <div className="max-w-3xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
                                 <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
                               </div>
                             ) : (
@@ -570,232 +682,180 @@ export default function ProjectDetailPage() {
                               />
                             )}
                           </div>
-                       </div>
-                    </div>
+                        </div>
+                      </div>
 
-                    <div className="xl:col-span-1">
-                       <div className="sticky top-24 space-y-6">
-                          <Card className="border-none bg-zinc-50 border-zinc-100 p-8 rounded-3xl">
-                             <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Article Health</h3>
-                             <div className="space-y-6">
-                                <div className="flex justify-between items-center">
-                                   <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Word Count</span>
-                                   <span className="text-base font-black text-zinc-900">{selectedDraft.word_count || 0}</span>
-                                </div>
-                                <div className="space-y-2">
-                                   <div className="flex justify-between items-center">
-                                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">SEO Score</span>
-                                      <span className={`text-sm font-black ${seoColor((selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0).text}`}>
-                                         {(selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0}%
-                                      </span>
+                      <div className="xl:col-span-1">
+                        <div className="sticky top-12 space-y-6">
+                           <Card className="border-none bg-zinc-50 p-8 rounded-3xl">
+                              <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
+                              <div className="space-y-6">
+                                 <div className="flex justify-between items-center">
+                                    <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Score</span>
+                                    <span className={`text-base font-black ${seoColor((selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0).text}`}>
+                                      {(selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0}%
+                                    </span>
+                                 </div>
+                              </div>
+                              <div className="mt-8 pt-8 border-t border-zinc-200/50 space-y-3">
+                                 {!selectedDraft.selected ? (
+                                   <Button 
+                                     variant="primary" 
+                                     className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
+                                     onClick={() => handleSelectClick(selectedDraft, false)}
+                                     disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
+                                   >
+                                     {activeDrafts.some(d => d.selected) ? 'ANOTHER DRAFT SELECTED' : 'SELECT FOR ADAPTATION'}
+                                   </Button>
+                                 ) : (
+                                   <div className="bg-green-500 text-white p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest">
+                                      ALREADY ADAPTED
                                    </div>
-                                   <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
-                                      <div 
-                                        className={`h-full transition-all duration-1000 ${seoColor((selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0).bg.replace('-50', '-500')}`} 
-                                        style={{ width: `${(selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0}%` }}
-                                      />
+                                 )}
+
+                                 {viewModes.article === 'edit' && (
+                                   <div className="grid grid-cols-2 gap-2 mt-4">
+                                      <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
+                                      <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
                                    </div>
-                                </div>
-                             </div>
-                             
-                             <div className="mt-8 pt-8 border-t border-zinc-200/50 space-y-3">
-                                <Button 
-                                  variant="primary" 
-                                  className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg shadow-zinc-200"
-                                  onClick={() => handleSelectClick(selectedDraft, false)}
-                                  disabled={job.status !== 'awaiting_review'}
-                                >
-                                  {job.status === 'awaiting_review' ? 'CONFIRM & ADAPT' : 'ALREADY ADAPTED'}
-                                </Button>
-                                
-                                {viewModes.article === 'edit' && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Button variant="ghost" className="font-bold text-[10px] uppercase tracking-tighter text-zinc-400" onClick={() => setViewMode('article', 'view')}>
-                                      DISCARD
-                                    </Button>
-                                    <Button variant="outline" className="font-bold text-[10px] uppercase tracking-tighter border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>
-                                      SAVE
-                                    </Button>
+                                 )}
+                              </div>
+                           </Card>
+
+                           <div className="p-8 bg-orange-50 border border-orange-100 rounded-3xl">
+                              <p className="text-xs font-black text-orange-900 uppercase tracking-widest mb-4">Revision Loop</p>
+                              <Button 
+                                variant="outline" 
+                                className="w-full bg-white border-orange-200 text-orange-600 font-black h-12 text-[10px] uppercase tracking-widest"
+                                onClick={() => {
+                                   setRevisionTargetId(selectedDraft.id);
+                                   setShowRevisionModal(true);
+                                }}
+                                disabled={(job.revision_count || 0) >= 3}
+                              >
+                                Start Revision #{(job.revision_count || 0) + 1}
+                              </Button>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Platform Adaptation Editor Sub-sections (Only for selected/adapted draft) */}
+                  {selectedDraft.selected && (
+                    <div className="space-y-16 mt-20 border-t-2 border-zinc-50 pt-20">
+                      <div className="flex items-center gap-4 mb-12">
+                         <div className="h-1 shadow-sm bg-orange-500 w-12 rounded-full" />
+                         <h3 className="text-2xl font-black text-zinc-900 uppercase tracking-widest">Post Adaptations</h3>
+                      </div>
+
+                      <div className="space-y-24">
+                        {['linkedin', 'twitter', 'email'].map((platform) => {
+                          const post = posts.find(p => p.platform === platform);
+                          if (!post) return null;
+
+                          const iconMap = { linkedin: Linkedin, twitter: Twitter, email: Mail };
+                          const Icon = iconMap[platform as keyof typeof iconMap];
+                          const platformKey = platform === 'email' ? 'newsletter' : platform;
+
+                          return (
+                            <div key={platform} className="section-container">
+                               <div className="flex items-center justify-between mb-8 group">
+                                  <div className="flex items-center gap-4">
+                                     <div className={`p-2.5 rounded-xl text-white ${
+                                       platform === 'linkedin' ? 'bg-[#0077b5]' : 
+                                       platform === 'twitter' ? 'bg-zinc-900' : 'bg-orange-500'
+                                     }`}>
+                                        <Icon size={20} />
+                                     </div>
+                                     <h4 className="text-xl font-black text-zinc-900 capitalize">{platform === 'email' ? 'Newsletter' : platform} Version</h4>
                                   </div>
-                                )}
-                             </div>
-                          </Card>
+                                  
+                                  <div className="flex items-center bg-zinc-100 p-1 rounded-xl">
+                                     <button 
+                                       onClick={() => setViewMode(platformKey, 'view')}
+                                       className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${viewModes[platformKey] === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
+                                     >
+                                       VIEW
+                                     </button>
+                                     <button 
+                                       onClick={() => setViewMode(platformKey, 'edit')}
+                                       className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${viewModes[platformKey] === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
+                                     >
+                                       EDIT
+                                     </button>
+                                  </div>
+                               </div>
 
-                          <div className="p-6 bg-orange-50/50 border border-orange-100 rounded-3xl">
-                             <div className="flex gap-4 items-start mb-4">
-                                <div className="p-2.5 bg-orange-500 rounded-xl shadow-lg shadow-orange-200 text-white">
-                                   <MessageSquare size={18} strokeWidth={3} />
-                                </div>
-                                <div>
-                                   <p className="text-xs font-black text-orange-900 uppercase tracking-tighter">AI Revision Loop</p>
-                                   <p className="text-[10px] text-orange-700 font-medium leading-relaxed mt-1">Found a logical gap? Ask the AI to fix it. Still have {(3 - (job.revision_count || 0))} rounds.</p>
-                                </div>
-                             </div>
-                             <Button 
-                               variant="outline" 
-                               size="sm" 
-                               className="w-full bg-white hover:bg-orange-50 border-orange-200 text-orange-600 font-black h-10 text-[10px] uppercase tracking-widest"
-                               onClick={() => {
-                                  setRevisionTargetId(selectedDraft.id);
-                                  setShowRevisionModal(true);
-                               }}
-                               disabled={(job.revision_count || 0) >= 3}
-                             >
-                               Start Revision Round
-                             </Button>
-                          </div>
-                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 2. PLATFORM ADAPTATIONS SECTION */}
-              {['linkedin', 'twitter', 'email'].map((platform, idx) => {
-                const post = posts.find(p => p.platform === platform);
-                const iconMap = { linkedin: Linkedin, twitter: Twitter, email: Mail };
-                const Icon = iconMap[platform as keyof typeof iconMap];
-                const platformKey = platform === 'email' ? 'newsletter' : platform;
-                const isExpanded = expandedSections[platformKey];
-                const viewMode = viewModes[platformKey];
-                
-                if (!post && (job.status === 'awaiting_review' || job.status === 'drafting')) return null;
-
-                return (
-                  <div key={platform} className="section-container border-t-2 border-zinc-50 pt-16">
-                    <div className="flex items-center justify-between mb-8 group">
-                       <div className="flex items-center gap-4 cursor-pointer" onClick={() => toggleSection(platformKey)}>
-                          <div className={`p-3 rounded-2xl text-white shadow-lg ${
-                            platform === 'linkedin' ? 'bg-[#0077b5]' : 
-                            platform === 'twitter' ? 'bg-zinc-900' : 'bg-orange-500'
-                          }`}>
-                            <Icon size={24} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] bg-zinc-100 px-2 py-0.5 rounded leading-none">Phase 2</span>
-                              <span className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded ${
-                                post?.status === 'published' ? 'bg-green-100 text-green-600' : 
-                                post?.status === 'scheduled' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                              }`}>
-                                {post?.status || 'Generating...'}
-                              </span>
+                               <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+                                  <div className="lg:col-span-3">
+                                     <div className="bg-white border-2 border-zinc-100 rounded-[2.5rem] p-10 lg:p-16 shadow-xl shadow-zinc-200/50 min-h-[400px]">
+                                        {viewModes[platformKey] === 'view' ? (
+                                          <div className="max-w-2xl mx-auto prose prose-zinc prose-base selection:bg-orange-100 font-medium leading-relaxed">
+                                            <ReactMarkdown>{contents[platformKey] || post.content || ''}</ReactMarkdown>
+                                          </div>
+                                        ) : (
+                                          <RichTextEditor 
+                                            content={contents[platformKey]} 
+                                            onChange={(c) => setContents(prev => ({ ...prev, [platformKey]: c }))} 
+                                            editable={true}
+                                          />
+                                        )}
+                                     </div>
+                                  </div>
+                                  <div className="lg:col-span-1">
+                                     <div className="sticky top-12 space-y-4">
+                                        <Card className="border-none bg-zinc-50 p-6 rounded-2xl">
+                                           <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Publishing</p>
+                                           <div className="space-y-2">
+                                              {platform === 'twitter' ? (
+                                                <Button 
+                                                  variant="primary" 
+                                                  className="w-full h-10 font-bold text-[10px] uppercase tracking-widest bg-zinc-900"
+                                                  disabled={post.status === 'published'}
+                                                  onClick={() => handleMarkAsPosted(post.id)}
+                                                >
+                                                  {post.status === 'published' ? 'Posted' : 'Mark as Posted'}
+                                                </Button>
+                                              ) : (
+                                                <>
+                                                  <Button 
+                                                    variant="primary" 
+                                                    className="w-full h-10 font-bold text-[10px] uppercase tracking-widest"
+                                                    disabled={post.status === 'published'}
+                                                    onClick={() => handlePublishNow(post.id, platform as 'linkedin' | 'email')}
+                                                  >
+                                                    Publish Now
+                                                  </Button>
+                                                  <Button 
+                                                    variant="outline" 
+                                                    className="w-full h-10 font-bold text-[10px] uppercase tracking-widest border-zinc-200"
+                                                    disabled={post.status === 'published'}
+                                                    onClick={() => openScheduleModal(post.id, platform)}
+                                                  >
+                                                    Schedule
+                                                  </Button>
+                                                </>
+                                              )}
+                                              {viewModes[platformKey] === 'edit' && (
+                                                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-zinc-200">
+                                                   <Button variant="ghost" className="text-[9px] font-black" onClick={() => setViewMode(platformKey, 'view')}>DISCARD</Button>
+                                                   <Button variant="outline" className="text-[9px] font-black border-zinc-200" onClick={() => saveContent(platformKey, post.id)}>SAVE</Button>
+                                                </div>
+                                              )}
+                                           </div>
+                                        </Card>
+                                     </div>
+                                  </div>
+                               </div>
                             </div>
-                            <h2 className="text-2xl font-black text-zinc-900 leading-none capitalize">
-                              {platform === 'twitter' ? 'X (Twitter) Version' : platform === 'email' ? 'Newsletter Version' : `${platform} Optimization`}
-                            </h2>
-                          </div>
-                          <ChevronRight className={`w-6 h-6 text-zinc-300 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                       </div>
-
-                       {post && (
-                         <div className="flex items-center bg-zinc-100 p-1 rounded-xl shadow-inner">
-                            <button 
-                              onClick={() => setViewMode(platformKey, 'view')}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black transition-all ${viewMode === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                            >
-                              <Eye size={14} /> VIEW
-                            </button>
-                            <button 
-                              onClick={() => setViewMode(platformKey, 'edit')}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-black transition-all ${viewMode === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                            >
-                              <Edit3 size={14} /> EDIT
-                            </button>
-                         </div>
-                       )}
+                          );
+                        })}
+                      </div>
                     </div>
-
-                    {isExpanded && post && (
-                       <div className="grid grid-cols-1 xl:grid-cols-4 gap-12 animate-in slide-in-from-top-4 duration-500">
-                          <div className="xl:col-span-3">
-                             <div className="bg-white border-2 border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-xl shadow-zinc-200/50 flex flex-col min-h-[400px]">
-                                <div className="flex-1 p-10 lg:p-16">
-                                  {viewMode === 'view' ? (
-                                    <div className="max-w-2xl mx-auto prose prose-zinc prose-sm md:prose-base !leading-loose selection:bg-orange-100 font-medium">
-                                      <ReactMarkdown>{contents[platformKey] || post.content || ''}</ReactMarkdown>
-                                    </div>
-                                  ) : (
-                                    <RichTextEditor 
-                                      content={contents[platformKey]} 
-                                      onChange={(c) => setContents(prev => ({ ...prev, [platformKey]: c }))} 
-                                      editable={true}
-                                    />
-                                  )}
-                                </div>
-                             </div>
-                          </div>
-
-                          <div className="xl:col-span-1">
-                             <div className="sticky top-24 space-y-6">
-                                <Card className="border-none bg-zinc-50 border-zinc-100 p-8 rounded-3xl">
-                                   <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Distribution</h3>
-                                   
-                                   <div className="space-y-4">
-                                      {platform === 'twitter' ? (
-                                        <Button 
-                                          variant="primary" 
-                                          className="w-full h-12 font-black text-[10px] uppercase tracking-widest bg-zinc-900 hover:bg-black shadow-lg shadow-zinc-200"
-                                          disabled={post.status === 'published'}
-                                          onClick={() => handleMarkAsPosted(post.id)}
-                                        >
-                                          {post.status === 'published' ? 'ALREADY POSTED' : 'MARK AS POSTED'}
-                                        </Button>
-                                      ) : (
-                                        <>
-                                          <Button 
-                                            variant="primary" 
-                                            className="w-full h-12 font-black text-[10px] uppercase tracking-widest shadow-lg shadow-zinc-200"
-                                            disabled={post.status === 'published'}
-                                            onClick={() => handlePublishNow(post.id)}
-                                          >
-                                            <Send size={14} className="mr-2" /> PUBLISH NOW
-                                          </Button>
-                                          <Button 
-                                            variant="outline" 
-                                            className="w-full h-12 font-black text-[10px] uppercase tracking-widest border-zinc-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100 transition-all"
-                                            disabled={post.status === 'published'}
-                                            onClick={() => openScheduleModal(post.id, platform)}
-                                          >
-                                            <Calendar size={14} className="mr-2" /> {post.status === 'scheduled' ? 'RESCHEDULE' : 'SCHEDULE POST'}
-                                          </Button>
-                                          {post.status === 'scheduled' && (
-                                             <div className="text-[10px] text-zinc-400 font-bold text-center uppercase tracking-tighter">
-                                                Locked for {new Date(post.publish_at!).toLocaleString()}
-                                             </div>
-                                          )}
-                                        </>
-                                      )}
-
-                                      {viewMode === 'edit' && (
-                                        <div className="grid grid-cols-2 gap-2 pt-4 border-t border-zinc-200/50 mt-4">
-                                          <Button variant="ghost" className="font-bold text-[10px] uppercase tracking-tighter text-zinc-400" onClick={() => setViewMode(platformKey, 'view')}>
-                                            DISCARD
-                                          </Button>
-                                          <Button variant="outline" className="font-bold text-[10px] uppercase tracking-tighter border-zinc-200" onClick={() => saveContent(platformKey, post.id)}>
-                                            SAVE
-                                          </Button>
-                                        </div>
-                                      )}
-                                   </div>
-                                </Card>
-
-                                <div className="p-6 bg-zinc-900 rounded-3xl text-white">
-                                   <div className="flex gap-3 items-center mb-3">
-                                      <Globe size={16} className="text-blue-400" />
-                                      <p className="text-[10px] font-black uppercase tracking-widest">Network Info</p>
-                                   </div>
-                                   <p className="text-[10px] text-zinc-400 leading-relaxed">
-                                      Content is optimized for {platform === 'email' ? 'modern inbox rendering' : 'algorithm-friendly engagement'} via PAS framework.
-                                   </p>
-                                </div>
-                             </div>
-                          </div>
-                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -943,6 +1003,33 @@ export default function ProjectDetailPage() {
               </div>
            )}
            <Button className="w-full mt-4 font-bold" onClick={() => setShowInputModal(false)}>Close</Button>
+        </div>
+      </Modal>
+      <Modal 
+        isOpen={showDeleteModal} 
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Project?"
+      >
+        <div className="space-y-6">
+           <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
+              <AlertCircle className="text-red-500 shrink-0" size={20} />
+              <p className="text-xs text-red-800 leading-relaxed font-medium">
+                This will permanently remove the project, all drafts, and platform adaptations. This action cannot be undone.
+              </p>
+           </div>
+           
+           <div className="flex gap-3">
+              <Button variant="ghost" className="flex-1 font-bold" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+              <Button 
+                variant="primary" 
+                className="flex-1 font-black uppercase tracking-widest text-xs h-12 bg-red-600 hover:bg-red-700 !shadow-red-200"
+                onClick={handleDeleteProject}
+                disabled={isUpdating}
+                loading={isUpdating}
+              >
+                Delete permanently
+              </Button>
+           </div>
         </div>
       </Modal>
     </div>

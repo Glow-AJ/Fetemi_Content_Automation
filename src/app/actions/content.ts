@@ -259,16 +259,20 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
-  const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH;
-  if (webhookUrl && webhookUrl !== 'placeholder' && user) {
+  if (!user) return { success: false, error: 'User not authenticated' };
+
+  const webhookUrl = platform === 'linkedin' 
+    ? process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH_LINKEDIN 
+    : process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH_EMAIL;
+
+  if (webhookUrl && webhookUrl !== 'placeholder' && webhookUrl !== '') {
     try {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          job_id: jobId, 
-          platform, 
           post_id: postId,
+          job_id: jobId, 
           user_id: user.id,
           user_email: user.email
         }),
@@ -280,10 +284,11 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
       }
       
       // Update local status to prevent clicking twice
-      await supabase.from('platform_posts').update({ status: 'ready_to_publish' }).eq('id', postId);
+      await supabase.from('platform_posts').update({ status: 'published' }).eq('id', postId);
       
       return { success: true };
     } catch (err) {
+      console.error('[Action] Publish webhook failed:', err);
       return { success: false, error: 'Failed to trigger publishing automation.' };
     }
   }
