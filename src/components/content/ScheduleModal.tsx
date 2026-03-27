@@ -36,14 +36,14 @@ export function ScheduleModal({
           <div className="space-y-2">
             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Date</label>
             <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-orange-500 transition-colors">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-orange-500 transition-colors pointer-events-none">
                 <Calendar size={18} />
               </div>
               <input 
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all outline-none"
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all outline-none cursor-pointer"
               />
             </div>
           </div>
@@ -51,14 +51,14 @@ export function ScheduleModal({
           <div className="space-y-2">
             <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Time</label>
             <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-orange-500 transition-colors">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-orange-500 transition-colors pointer-events-none">
                 <Clock size={18} />
               </div>
               <input 
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all outline-none"
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all outline-none cursor-pointer"
               />
             </div>
           </div>

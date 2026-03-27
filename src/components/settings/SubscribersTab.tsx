@@ -28,10 +28,11 @@ export function SubscribersTab() {
   const [showCsvGuide, setShowCsvGuide] = useState(false);
 
   // Add Form
-  const [addEmail, setAddEmail] = useState('');
-  const [addName, setAddName] = useState('');
-  const [addDate, setAddDate] = useState(new Date().toISOString().split('T')[0]);
+  const [manualSubscribers, setManualSubscribers] = useState<{ email: string; name: string; date: string }[]>([
+    { email: '', name: '', date: new Date().toISOString().split('T')[0] }
+  ]);
   const [isAdding, setIsAdding] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<number, string>>({});
 
   // CSV
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -50,23 +51,73 @@ export function SubscribersTab() {
     setLoading(false);
   };
 
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const addMoreRow = () => {
+    setManualSubscribers([...manualSubscribers, { email: '', name: '', date: new Date().toISOString().split('T')[0] }]);
+  };
+
+  const removeRow = (index: number) => {
+    if (manualSubscribers.length > 1) {
+      setManualSubscribers(manualSubscribers.filter((_, i) => i !== index));
+      const newErrors = { ...formErrors };
+      delete newErrors[index];
+      setFormErrors(newErrors);
+    }
+  };
+
+  const updateRow = (index: number, field: string, value: string) => {
+    const newSubs = [...manualSubscribers];
+    newSubs[index] = { ...newSubs[index], [field]: value };
+    setManualSubscribers(newSubs);
+    
+    if (field === 'email' && value && !validateEmail(value)) {
+      setFormErrors({ ...formErrors, [index]: 'Invalid email format' });
+    } else {
+      const newErrors = { ...formErrors };
+      delete newErrors[index];
+      setFormErrors(newErrors);
+    }
+  };
+
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addEmail || !user) return;
+    if (!user) return;
+
+    const validSubs = manualSubscribers.filter(s => s.email.trim() !== '');
+    if (validSubs.length === 0) return;
+
+    // Final validation check
+    const errors: Record<number, string> = {};
+    validSubs.forEach((s, i) => {
+      if (!validateEmail(s.email)) {
+        errors[i] = 'Invalid email';
+      }
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     setIsAdding(true);
-    const { error } = await supabase.from('subscribers').insert([{ 
-      email: addEmail, 
-      name: addName || null, 
+    const toInsert = validSubs.map(s => ({
+      email: s.email,
+      name: s.name || null,
       user_id: user.id,
       status: 'active',
-      subscribed_at: addDate ? new Date(addDate).toISOString() : new Date().toISOString()
-    }]);
+      subscribed_at: s.date ? new Date(s.date).toISOString() : new Date().toISOString()
+    }));
+
+    const { error } = await supabase.from('subscribers').insert(toInsert);
     setIsAdding(false);
+    
     if (!error) {
       setShowAddModal(false);
-      setAddEmail('');
-      setAddName('');
-      setAddDate(new Date().toISOString().split('T')[0]);
+      setManualSubscribers([{ email: '', name: '', date: new Date().toISOString().split('T')[0] }]);
+      setFormErrors({});
       fetchSubscribers();
     } else {
       alert(error.message);
@@ -235,10 +286,60 @@ export function SubscribersTab() {
           </>
         }
       >
-        <form onSubmit={handleManualAdd} className="space-y-4">
-          <Input label="Email Address" type="email" required placeholder="subscriber@example.com" value={addEmail} onChange={e => setAddEmail(e.target.value)} />
-          <Input label="Full Name (Optional)" type="text" placeholder="John Doe" value={addName} onChange={e => setAddName(e.target.value)} />
-          <Input label="Subscription Date" type="date" value={addDate} onChange={e => setAddDate(e.target.value)} />
+        <form onSubmit={handleManualAdd} className="space-y-6">
+          <div className="max-h-[50vh] overflow-y-auto pr-2 space-y-8 custom-scrollbar">
+            {manualSubscribers.map((sub, index) => (
+              <div key={index} className="relative p-6 bg-zinc-50 border border-zinc-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                {manualSubscribers.length > 1 && (
+                  <button 
+                    type="button"
+                    onClick={() => removeRow(index)}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-all z-10"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input 
+                    label="Email Address" 
+                    type="email" 
+                    required 
+                    placeholder="example@mail.com" 
+                    value={sub.email} 
+                    onChange={e => updateRow(index, 'email', e.target.value)}
+                    error={formErrors[index]}
+                  />
+                  <Input 
+                    label="Full Name" 
+                    type="text" 
+                    placeholder="John Doe" 
+                    value={sub.name} 
+                    onChange={e => updateRow(index, 'name', e.target.value)} 
+                  />
+                  <div className="md:col-span-2">
+                    <Input 
+                      label="Subscription Date" 
+                      type="date" 
+                      value={sub.date} 
+                      onChange={e => updateRow(index, 'date', e.target.value)} 
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <Button 
+            variant="outline" 
+            type="button"
+            onClick={addMoreRow}
+            className="w-full border-dashed border-2 py-6 hover:bg-zinc-50 hover:border-zinc-300 transition-all group"
+          >
+            <div className="flex flex-col items-center gap-1">
+              <Plus size={20} className="text-zinc-400 group-hover:text-zinc-600 transition-colors" />
+              <span className="text-[10px] uppercase font-black tracking-widest text-zinc-400 group-hover:text-zinc-600">Add Another Record</span>
+            </div>
+          </Button>
         </form>
       </Modal>
 

@@ -10,7 +10,7 @@ const supabaseAdmin = createClient(
 
 export async function inviteTeamMemberAction(email: string) {
   try {
-    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
     });
 

@@ -19,6 +19,7 @@ interface RichTextEditorProps {
   content: string;
   onChange: (markdown: string) => void;
   editable?: boolean;
+  toolbar?: boolean;
 }
 
 const MenuBar = ({ editor }: { editor: Editor | null }) => {
@@ -123,7 +124,7 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
   );
 };
 
-export const RichTextEditor = ({ content, onChange, editable = true }: RichTextEditorProps) => {
+export const RichTextEditor = ({ content, onChange, editable = true, toolbar = true }: RichTextEditorProps) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -179,7 +180,7 @@ export const RichTextEditor = ({ content, onChange, editable = true }: RichTextE
 
   return (
     <div className="w-full border border-[var(--color-border)] rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-zinc-200">
-      {editable && <MenuBar editor={editor} />}
+      {(editable && toolbar) && <MenuBar editor={editor} />}
       
       {editor && (
         <>

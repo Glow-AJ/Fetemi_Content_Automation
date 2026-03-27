@@ -194,12 +194,20 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleEdit = (draft: Draft) => {
+  const handleEdit = (draft: Draft, scrollTarget?: string) => {
     setSelectedDraft(draft);
     setContents(prev => ({ ...prev, article: draft.content || '' }));
     setViewModes(prev => ({ ...prev, article: 'view' }));
     setViewState('editor');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    if (scrollTarget) {
+      setTimeout(() => {
+        const el = document.getElementById(scrollTarget);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const saveContent = async (section: string, id: string) => {
@@ -461,8 +469,8 @@ export default function ProjectDetailPage() {
                     return (
                       <Card 
                         key={draft.id} 
-                        onClick={() => !isSelectedElsewhere && handleEdit(draft)}
-                        className={`relative border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-6 cursor-pointer ${draft.selected ? 'ring-2 ring-orange-500' : ''} ${isSelectedElsewhere ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+                        onClick={() => handleEdit(draft)}
+                        className={`relative border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-6 cursor-pointer ${draft.selected ? 'ring-2 ring-orange-500' : ''} ${isSelectedElsewhere ? 'opacity-70' : ''}`}
                       >
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex items-center gap-3">
@@ -493,18 +501,24 @@ export default function ProjectDetailPage() {
                             </div>
                           </div>
                           
-                          <Button 
-                            variant="primary" 
-                            size="sm" 
-                            className={`h-8 px-4 text-[10px] font-black uppercase tracking-widest transition-all ${isSelectedElsewhere ? 'bg-zinc-100 text-zinc-400 hover:bg-zinc-100' : ''}`}
-                            disabled={!!isSelectedElsewhere}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectClick(draft, true);
-                            }}
-                          >
-                            Select
-                          </Button>
+                          {draft.selected ? (
+                            <div className="bg-zinc-200 text-zinc-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-zinc-300">
+                              Adapted
+                            </div>
+                          ) : (
+                            <Button 
+                              variant="primary" 
+                              size="sm" 
+                              className={`h-8 px-4 text-[10px] font-black uppercase tracking-widest transition-all ${isSelectedElsewhere ? 'bg-zinc-100 text-zinc-400 border-zinc-200 hover:bg-zinc-100' : ''}`}
+                              disabled={!!isSelectedElsewhere}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectClick(draft, true);
+                              }}
+                            >
+                              {isSelectedElsewhere ? 'Locked' : 'Select'}
+                            </Button>
+                          )}
                         </div>
                       </Card>
                     );
@@ -543,7 +557,12 @@ export default function ProjectDetailPage() {
                         <Card 
                           key={platform} 
                           className="relative border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-6 cursor-pointer"
-                          onClick={() => post && (setSelectedDraft(activeDrafts.find(d => d.selected) || null), setViewState('editor'), window.scrollTo({ top: 0, behavior: 'smooth' }))}
+                          onClick={() => {
+                            const adaptedDraft = activeDrafts.find(d => d.selected);
+                            if (adaptedDraft) {
+                              handleEdit(adaptedDraft, `section-${platform}`);
+                            }
+                          }}
                         >
                           <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-3">
@@ -632,18 +651,22 @@ export default function ProjectDetailPage() {
                   {/* Article Editor */}
                   <div className="section-container">
                     <div className="flex items-center justify-between mb-8 group">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-zinc-900 rounded-2xl text-white shadow-lg">
-                          <FileText size={24} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] bg-orange-100/50 px-2 py-0.5 rounded leading-none">Draft Editor</span>
-                            <span className="text-xs text-zinc-400 font-bold uppercase tracking-tighter">Round #{selectedDraft.revision_round || 0}</span>
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={() => toggleSection('article')}
+                            className="p-3 bg-zinc-900 rounded-2xl text-white shadow-lg hover:bg-orange-600 transition-colors"
+                          >
+                            <FileText size={24} className={expandedSections.article ? '' : 'opacity-50'} />
+                          </button>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] bg-orange-100/50 px-2 py-0.5 rounded leading-none">Draft Editor</span>
+                              <span className="text-xs text-zinc-400 font-bold uppercase tracking-tighter">Round #{selectedDraft.revision_round || 0}</span>
+                              {!expandedSections.article && <span className="text-[10px] font-bold text-zinc-400 uppercase ml-2">(Collapsed)</span>}
+                            </div>
+                            <h2 className="text-3xl font-black text-zinc-900 leading-tight">{selectedDraft.angle || 'Article Draft'}</h2>
                           </div>
-                          <h2 className="text-3xl font-black text-zinc-900 leading-tight">{selectedDraft.angle || 'Article Draft'}</h2>
                         </div>
-                      </div>
 
                       <div className="flex items-center bg-zinc-100 p-1 rounded-xl shadow-inner">
                         <button 
@@ -661,84 +684,86 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-4 gap-12">
-                      <div className="xl:col-span-3">
-                        <div className="bg-white border-2 border-zinc-100 rounded-[3rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
-                          {selectedDraft.image_url && (
-                            <div className="w-full h-[450px] bg-zinc-100 overflow-hidden relative group">
-                              <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                            </div>
-                          )}
-                          <div className="flex-1 p-10 lg:p-20">
-                            {viewModes.article === 'view' ? (
-                              <div className="max-w-3xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
-                                <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
+                    {expandedSections.article && (
+                      <div className="grid grid-cols-1 xl:grid-cols-4 gap-12 animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="xl:col-span-3">
+                          <div className="bg-white border-2 border-zinc-100 rounded-[3rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
+                            {selectedDraft.image_url && (
+                              <div className="w-full h-[450px] bg-zinc-100 overflow-hidden relative group">
+                                <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                               </div>
-                            ) : (
-                              <RichTextEditor 
-                                content={contents.article} 
-                                onChange={(c) => setContents(prev => ({ ...prev, article: c }))} 
-                                editable={true}
-                              />
                             )}
+                            <div className="flex-1 p-10 lg:p-20">
+                              {viewModes.article === 'view' ? (
+                                <div className="max-w-3xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
+                                  <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
+                                </div>
+                              ) : (
+                                <RichTextEditor 
+                                  content={contents.article} 
+                                  onChange={(c) => setContents(prev => ({ ...prev, article: c }))} 
+                                  editable={true}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="xl:col-span-1">
+                          <div className="sticky top-12 space-y-6">
+                             <Card className="border-none bg-zinc-50 p-8 rounded-3xl">
+                                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
+                                <div className="space-y-6">
+                                   <div className="flex justify-between items-center">
+                                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Score</span>
+                                      <span className={`text-base font-black ${seoColor((selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0).text}`}>
+                                        {(selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0}%
+                                      </span>
+                                   </div>
+                                </div>
+                                <div className="mt-8 pt-8 border-t border-zinc-200/50 space-y-3">
+                                   {!selectedDraft.selected ? (
+                                     <Button 
+                                       variant="primary" 
+                                       className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
+                                       onClick={() => handleSelectClick(selectedDraft as Draft, false)}
+                                       disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
+                                     >
+                                       {activeDrafts.some(d => d.selected) ? 'ANOTHER DRAFT SELECTED' : 'SELECT FOR ADAPTATION'}
+                                     </Button>
+                                   ) : (
+                                     <div className="bg-zinc-200 text-zinc-500 p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest border border-zinc-300">
+                                        ALREADY ADAPTED
+                                     </div>
+                                   )}
+
+                                   {viewModes.article === 'edit' && (
+                                     <div className="grid grid-cols-2 gap-2 mt-4">
+                                        <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
+                                        <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
+                                     </div>
+                                   )}
+                                </div>
+                             </Card>
+
+                             <div className="p-8 bg-orange-50 border border-orange-100 rounded-3xl">
+                                <p className="text-xs font-black text-orange-900 uppercase tracking-widest mb-4">Revision Loop</p>
+                                <Button 
+                                  variant="outline" 
+                                  className="w-full bg-white border-orange-200 text-orange-600 font-black h-12 text-[10px] uppercase tracking-widest"
+                                  onClick={() => {
+                                     setRevisionTargetId(selectedDraft.id);
+                                     setShowRevisionModal(true);
+                                  }}
+                                  disabled={(job.revision_count || 0) >= 3}
+                                >
+                                  Start Revision #{(job.revision_count || 0) + 1}
+                                </Button>
+                             </div>
                           </div>
                         </div>
                       </div>
-
-                      <div className="xl:col-span-1">
-                        <div className="sticky top-12 space-y-6">
-                           <Card className="border-none bg-zinc-50 p-8 rounded-3xl">
-                              <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
-                              <div className="space-y-6">
-                                 <div className="flex justify-between items-center">
-                                    <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Score</span>
-                                    <span className={`text-base font-black ${seoColor((selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0).text}`}>
-                                      {(selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0}%
-                                    </span>
-                                 </div>
-                              </div>
-                              <div className="mt-8 pt-8 border-t border-zinc-200/50 space-y-3">
-                                 {!selectedDraft.selected ? (
-                                   <Button 
-                                     variant="primary" 
-                                     className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
-                                     onClick={() => handleSelectClick(selectedDraft, false)}
-                                     disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
-                                   >
-                                     {activeDrafts.some(d => d.selected) ? 'ANOTHER DRAFT SELECTED' : 'SELECT FOR ADAPTATION'}
-                                   </Button>
-                                 ) : (
-                                   <div className="bg-green-500 text-white p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest">
-                                      ALREADY ADAPTED
-                                   </div>
-                                 )}
-
-                                 {viewModes.article === 'edit' && (
-                                   <div className="grid grid-cols-2 gap-2 mt-4">
-                                      <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
-                                      <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
-                                   </div>
-                                 )}
-                              </div>
-                           </Card>
-
-                           <div className="p-8 bg-orange-50 border border-orange-100 rounded-3xl">
-                              <p className="text-xs font-black text-orange-900 uppercase tracking-widest mb-4">Revision Loop</p>
-                              <Button 
-                                variant="outline" 
-                                className="w-full bg-white border-orange-200 text-orange-600 font-black h-12 text-[10px] uppercase tracking-widest"
-                                onClick={() => {
-                                   setRevisionTargetId(selectedDraft.id);
-                                   setShowRevisionModal(true);
-                                }}
-                                disabled={(job.revision_count || 0) >= 3}
-                              >
-                                Start Revision #{(job.revision_count || 0) + 1}
-                              </Button>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Platform Adaptation Editor Sub-sections (Only for selected/adapted draft) */}
@@ -759,16 +784,22 @@ export default function ProjectDetailPage() {
                           const platformKey = platform === 'email' ? 'newsletter' : platform;
 
                           return (
-                            <div key={platform} className="section-container">
+                            <div key={platform} id={`section-${platform}`} className="section-container">
                                <div className="flex items-center justify-between mb-8 group">
                                   <div className="flex items-center gap-4">
-                                     <div className={`p-2.5 rounded-xl text-white ${
-                                       platform === 'linkedin' ? 'bg-[#0077b5]' : 
-                                       platform === 'twitter' ? 'bg-zinc-900' : 'bg-orange-500'
-                                     }`}>
-                                        <Icon size={20} />
-                                     </div>
-                                     <h4 className="text-xl font-black text-zinc-900 capitalize">{platform === 'email' ? 'Newsletter' : platform} Version</h4>
+                                     <button 
+                                       onClick={() => toggleSection(platformKey)}
+                                       className={`p-2.5 rounded-xl text-white shadow-lg transition-all hover:scale-110 ${
+                                         platform === 'linkedin' ? 'bg-[#0077b5]' : 
+                                         platform === 'twitter' ? 'bg-zinc-900' : 'bg-orange-500'
+                                       }`}
+                                     >
+                                        <Icon size={20} className={expandedSections[platformKey] ? '' : 'opacity-50'} />
+                                     </button>
+                                     <h4 className="text-xl font-black text-zinc-900 capitalize">
+                                       {platform === 'email' ? 'Newsletter' : platform} Version
+                                       {!expandedSections[platformKey] && <span className="text-[10px] font-bold text-zinc-400 uppercase ml-2 tracking-widest">(Collapsed)</span>}
+                                     </h4>
                                   </div>
                                   
                                   <div className="flex items-center bg-zinc-100 p-1 rounded-xl">
@@ -787,67 +818,112 @@ export default function ProjectDetailPage() {
                                   </div>
                                </div>
 
-                               <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-                                  <div className="lg:col-span-3">
-                                     <div className="bg-white border-2 border-zinc-100 rounded-[2.5rem] p-10 lg:p-16 shadow-xl shadow-zinc-200/50 min-h-[400px]">
-                                        {viewModes[platformKey] === 'view' ? (
-                                          <div className="max-w-2xl mx-auto prose prose-zinc prose-base selection:bg-orange-100 font-medium leading-relaxed">
-                                            <ReactMarkdown>{contents[platformKey] || post.content || ''}</ReactMarkdown>
-                                          </div>
-                                        ) : (
-                                          <RichTextEditor 
-                                            content={contents[platformKey]} 
-                                            onChange={(c) => setContents(prev => ({ ...prev, [platformKey]: c }))} 
-                                            editable={true}
-                                          />
-                                        )}
-                                     </div>
-                                  </div>
-                                  <div className="lg:col-span-1">
-                                     <div className="sticky top-12 space-y-4">
-                                        <Card className="border-none bg-zinc-50 p-6 rounded-2xl">
-                                           <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-4">Publishing</p>
-                                           <div className="space-y-2">
-                                              {platform === 'twitter' ? (
-                                                <Button 
-                                                  variant="primary" 
-                                                  className="w-full h-10 font-bold text-[10px] uppercase tracking-widest bg-zinc-900"
-                                                  disabled={post.status === 'published'}
-                                                  onClick={() => handleMarkAsPosted(post.id)}
-                                                >
-                                                  {post.status === 'published' ? 'Posted' : 'Mark as Posted'}
-                                                </Button>
-                                              ) : (
-                                                <>
+                               {expandedSections[platformKey] && (
+                                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 animate-in fade-in slide-in-from-top-4 duration-300">
+                                    <div className="lg:col-span-3">
+                                       <div className="bg-white border-2 border-zinc-100 rounded-[2.5rem] p-10 lg:p-16 shadow-xl shadow-zinc-200/50 min-h-[400px]">
+                                          {viewModes[platformKey] === 'view' ? (
+                                            <div className="max-w-2xl mx-auto prose prose-zinc prose-base selection:bg-orange-100 font-medium leading-relaxed">
+                                              <ReactMarkdown>{contents[platformKey] || post.content || ''}</ReactMarkdown>
+                                            </div>
+                                          ) : (
+                                            <RichTextEditor 
+                                              content={contents[platformKey]} 
+                                              onChange={(c) => setContents(prev => ({ ...prev, [platformKey]: c }))} 
+                                              editable={true}
+                                              toolbar={false}
+                                            />
+                                          )}
+                                       </div>
+                                    </div>
+
+                                    <div className="lg:col-span-1">
+                                       <div className="sticky top-12 space-y-6">
+                                          <Card className="border-none bg-zinc-50 p-6 rounded-3xl">
+                                             <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6">Status & Controls</h5>
+                                             <div className="space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">Current Status</span>
+                                                   <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                                      post.status === 'published' ? 'bg-green-100 text-green-600' : 
+                                                      post.status === 'scheduled' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                                                   }`}>
+                                                      {post.status}
+                                                   </span>
+                                                </div>
+                                                {post.publish_at && (
+                                                  <div className="pt-2 border-t border-zinc-200/50">
+                                                     <p className="text-[9px] font-bold text-zinc-400 uppercase mb-1">Scheduled for</p>
+                                                     <div className="flex items-center gap-1.5 text-xs text-zinc-900 font-black">
+                                                        <Clock size={12} className="text-blue-500" />
+                                                        {new Date(post.publish_at).toLocaleString()}
+                                                     </div>
+                                                  </div>
+                                                )}
+                                             </div>
+
+                                             <div className="mt-8 pt-6 border-t border-zinc-200/50 space-y-2" onClick={(e) => e.stopPropagation()}>
+                                                {platform === 'twitter' ? (
                                                   <Button 
                                                     variant="primary" 
-                                                    className="w-full h-10 font-bold text-[10px] uppercase tracking-widest"
+                                                    size="sm" 
+                                                    className="w-full h-10 text-[10px] font-black uppercase bg-zinc-900 hover:bg-black shadow-lg"
                                                     disabled={post.status === 'published'}
-                                                    onClick={() => handlePublishNow(post.id, platform as 'linkedin' | 'email')}
+                                                    onClick={() => handleMarkAsPosted(post.id)}
                                                   >
-                                                    Publish Now
+                                                    {post.status === 'published' ? 'Posted on X' : 'Mark as Posted'}
                                                   </Button>
-                                                  <Button 
-                                                    variant="outline" 
-                                                    className="w-full h-10 font-bold text-[10px] uppercase tracking-widest border-zinc-200"
-                                                    disabled={post.status === 'published'}
-                                                    onClick={() => openScheduleModal(post.id, platform)}
-                                                  >
-                                                    Schedule
-                                                  </Button>
-                                                </>
-                                              )}
-                                              {viewModes[platformKey] === 'edit' && (
-                                                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-zinc-200">
-                                                   <Button variant="ghost" className="text-[9px] font-black" onClick={() => setViewMode(platformKey, 'view')}>DISCARD</Button>
-                                                   <Button variant="outline" className="text-[9px] font-black border-zinc-200" onClick={() => saveContent(platformKey, post.id)}>SAVE</Button>
-                                                </div>
-                                              )}
-                                           </div>
-                                        </Card>
-                                     </div>
-                                  </div>
-                               </div>
+                                                ) : (
+                                                  <div className="flex flex-col gap-2">
+                                                    <Button 
+                                                      variant="primary" 
+                                                      size="sm" 
+                                                      className="w-full h-10 text-[10px] font-black uppercase tracking-widest shadow-lg"
+                                                      disabled={post.status === 'published'}
+                                                      onClick={() => handlePublishNow(post.id, platform as 'linkedin' | 'email')}
+                                                    >
+                                                      Publish Now
+                                                    </Button>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                      <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="h-10 text-[9px] font-black uppercase border-zinc-200"
+                                                        disabled={post.status === 'published'}
+                                                        onClick={() => openScheduleModal(post.id, platform)}
+                                                      >
+                                                        {post.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
+                                                      </Button>
+                                                      {post.status === 'scheduled' && (
+                                                        <Button 
+                                                          variant="ghost" 
+                                                          size="sm" 
+                                                          className="h-10 text-[9px] font-black uppercase text-red-500 hover:bg-red-50"
+                                                          onClick={async () => {
+                                                            if (window.confirm('Cancel this scheduled post?')) {
+                                                              await cancelScheduleAction(post.id);
+                                                            }
+                                                          }}
+                                                        >
+                                                          Cancel
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                                {viewModes[platformKey] === 'edit' && (
+                                                  <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-zinc-200/50">
+                                                     <Button variant="ghost" className="text-[9px] font-black" onClick={() => setViewMode(platformKey, 'view')}>DISCARD</Button>
+                                                     <Button variant="outline" className="text-[9px] font-black border-zinc-200" onClick={() => saveContent(platformKey, post.id)}>SAVE</Button>
+                                                  </div>
+                                                )}
+                                             </div>
+                                          </Card>
+                                       </div>
+                                    </div>
+                                 </div>
+                               )}
                             </div>
                           );
                         })}
@@ -953,7 +1029,7 @@ export default function ProjectDetailPage() {
                 value={revisionNote}
                 onChange={(e) => setRevisionNote(e.target.value)}
                 placeholder="What should the AI change?"
-                className="w-full h-32 p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all resize-none font-medium"
+                className="w-full h-32 p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all resize-none font-medium"
               />
            </div>
 

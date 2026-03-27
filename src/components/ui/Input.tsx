@@ -26,7 +26,7 @@ export function Input({ label, icon, error, helperText, className = '', ...props
         <input
           className={`
             w-full h-11 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)]
-            text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]
+            text-sm text-zinc-900 placeholder:text-[var(--color-text-muted)]
             focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10
             transition-all duration-200 disabled:opacity-50 disabled:bg-[var(--color-bg-subtle)]
             ${icon ? 'pl-10 pr-4' : 'px-4'}

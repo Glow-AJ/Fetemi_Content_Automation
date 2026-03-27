@@ -4,7 +4,6 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import crypto from 'crypto';
 import { validateUrl } from '@/lib/intake';
-import { PLATFORMS } from '@/lib/constants';
 
 /**
  * Intake - Creates a job and fires n8n webhook
@@ -334,7 +333,7 @@ export async function markAsPostedAction(postId: string) {
     .from('platform_posts')
     .update({ 
       status: 'published',
-      published_at: new Date().toISOString()
+      publish_at: new Date().toISOString()
     })
     .eq('id', postId);
 
