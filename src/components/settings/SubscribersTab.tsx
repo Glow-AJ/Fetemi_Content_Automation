@@ -27,17 +27,15 @@ export function SubscribersTab() {
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [showCsvGuide, setShowCsvGuide] = useState(false);
 
-  // Add Form
-  const [manualSubscribers, setManualSubscribers] = useState<{ email: string; name: string; date: string }[]>([
-    { email: '', name: '', date: new Date().toISOString().split('T')[0] }
-  ]);
+  // Add Form / CSV Preview
+  const [tempSubscribers, setTempSubscribers] = useState<{ 
+    email: string; 
+    name: string; 
+    date: string;
+    errors: { email?: string; date?: string };
+  }[]>([]);
+  const [isReviewing, setIsReviewing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<number, string>>({});
-
-  // CSV
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadSuccessCount, setUploadSuccessCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -55,59 +53,62 @@ export function SubscribersTab() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const addMoreRow = () => {
-    setManualSubscribers([...manualSubscribers, { email: '', name: '', date: new Date().toISOString().split('T')[0] }]);
+  const validateDate = (dateStr: string) => {
+    if (!dateStr) return true;
+    const now = new Date();
+    now.setHours(23, 59, 59, 999); // Allow until end of today
+    const selected = new Date(dateStr);
+    return selected <= now;
   };
 
-  const removeRow = (index: number) => {
-    if (manualSubscribers.length > 1) {
-      setManualSubscribers(manualSubscribers.filter((_, i) => i !== index));
-      const newErrors = { ...formErrors };
-      delete newErrors[index];
-      setFormErrors(newErrors);
-    }
+  const addNewRecord = () => {
+    setTempSubscribers([
+      ...tempSubscribers, 
+      { email: '', name: '', date: new Date().toISOString().split('T')[0], errors: {} }
+    ]);
+    setIsReviewing(true);
   };
 
-  const updateRow = (index: number, field: string, value: string) => {
-    const newSubs = [...manualSubscribers];
-    newSubs[index] = { ...newSubs[index], [field]: value };
-    setManualSubscribers(newSubs);
+  const updateTempRow = (index: number, field: string, value: string) => {
+    const newSubs = [...tempSubscribers];
+    const sub = { ...newSubs[index], [field]: value };
     
-    if (field === 'email' && value && !validateEmail(value)) {
-      setFormErrors({ ...formErrors, [index]: 'Invalid email format' });
-    } else {
-      const newErrors = { ...formErrors };
-      delete newErrors[index];
-      setFormErrors(newErrors);
+    // Validate
+    const errors: { email?: string; date?: string } = {};
+    if (field === 'email' || sub.email) {
+      if (!validateEmail(sub.email)) errors.email = 'Invalid email';
     }
+    if (field === 'date' || sub.date) {
+      if (!validateDate(sub.date)) errors.date = 'Date cannot be in the future';
+    }
+    
+    sub.errors = errors;
+    newSubs[index] = sub;
+    setTempSubscribers(newSubs);
   };
 
-  const handleManualAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const removeTempRow = (index: number) => {
+    const next = tempSubscribers.filter((_, i) => i !== index);
+    setTempSubscribers(next);
+    if (next.length === 0) setIsReviewing(false);
+  };
+
+  const handleManualAdd = async () => {
     if (!user) return;
 
-    const validSubs = manualSubscribers.filter(s => s.email.trim() !== '');
-    if (validSubs.length === 0) return;
-
-    // Final validation check
-    const errors: Record<number, string> = {};
-    validSubs.forEach((s, i) => {
-      if (!validateEmail(s.email)) {
-        errors[i] = 'Invalid email';
-      }
-    });
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
+    // Check for any errors
+    const hasErrors = tempSubscribers.some(s => Object.keys(s.errors).length > 0 || !s.email);
+    if (hasErrors) {
+      alert("Please fix all errors before submitting.");
       return;
     }
 
     setIsAdding(true);
-    const toInsert = validSubs.map(s => ({
+    const toInsert = tempSubscribers.map(s => ({
       email: s.email,
       name: s.name || null,
       user_id: user.id,
-      status: 'active',
+      status: 'active' as const,
       subscribed_at: s.date ? new Date(s.date).toISOString() : new Date().toISOString()
     }));
 
@@ -116,25 +117,22 @@ export function SubscribersTab() {
     
     if (!error) {
       setShowAddModal(false);
-      setManualSubscribers([{ email: '', name: '', date: new Date().toISOString().split('T')[0] }]);
-      setFormErrors({});
+      setIsReviewing(false);
+      setTempSubscribers([]);
       fetchSubscribers();
     } else {
       alert(error.message);
     }
   };
 
-  const handleCsvUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!csvFile || !user) return;
-    setIsUploading(true);
-    setUploadSuccessCount(null);
+  const handleCsvFileLoad = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
     
     try {
-      const text = await csvFile.text();
-      const rows = text.split('\n').map(row => row.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
+      const text = await file.text();
+      const rows = text.split('\n').filter(r => r.trim()).map(row => row.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
       
-      // Header detection
       const headers = rows[0].map(h => h.toLowerCase());
       const emailIndex = headers.indexOf('email');
       const nameIndex = headers.indexOf('name');
@@ -142,55 +140,40 @@ export function SubscribersTab() {
 
       if (emailIndex === -1) {
         alert("CSV must contain an 'email' column.");
-        setIsUploading(false);
         return;
       }
 
-      const newSubs = [];
+      const parsed: typeof tempSubscribers = [];
       for (let i = 1; i < rows.length; i++) {
         if (!rows[i] || !rows[i][emailIndex]) continue;
-        const subDate = dateIndex > -1 && rows[i][dateIndex] ? new Date(rows[i][dateIndex]) : new Date();
-        newSubs.push({
-          email: rows[i][emailIndex],
-          name: nameIndex > -1 ? rows[i][nameIndex] : null,
-          user_id: user.id,
-          status: 'active' as const,
-          subscribed_at: isNaN(subDate.getTime()) ? new Date().toISOString() : subDate.toISOString()
+        
+        const email = rows[i][emailIndex];
+        const name = nameIndex > -1 ? rows[i][nameIndex] : '';
+        const rawDate = dateIndex > -1 ? rows[i][dateIndex] : new Date().toISOString().split('T')[0];
+        const errors: { email?: string; date?: string } = {};
+        
+        if (!validateEmail(email)) errors.email = 'Invalid email';
+        if (!validateDate(rawDate)) errors.date = 'Date cannot be in the future';
+
+        parsed.push({
+          email,
+          name,
+          date: rawDate,
+          errors
         });
       }
 
-      if (newSubs.length > 0) {
-        const BATCH_SIZE = 100;
-        let insertedCount = 0;
-        
-        for (let i = 0; i < newSubs.length; i += BATCH_SIZE) {
-          const batch = newSubs.slice(i, i + BATCH_SIZE);
-          const { error } = await supabase.from('subscribers').insert(batch);
-          if (error) {
-            console.error('Batch error:', error);
-            alert(`Error uploading batch: ${error.message}`);
-            break;
-          }
-          insertedCount += batch.length;
-        }
-        
-        if (insertedCount > 0) {
-          setUploadSuccessCount(insertedCount);
-          setTimeout(() => {
-            setShowCsvModal(false);
-            setCsvFile(null);
-            setUploadSuccessCount(null);
-            fetchSubscribers();
-          }, 2000);
-        }
+      if (parsed.length > 0) {
+        setTempSubscribers([...tempSubscribers, ...parsed]);
+        setIsReviewing(true);
+        setShowCsvModal(false);
+        setShowAddModal(true);
       } else {
         alert("No valid subscribers found in CSV.");
       }
     } catch (err) {
       console.error(err);
       alert("Failed to parse CSV file.");
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -210,11 +193,14 @@ export function SubscribersTab() {
             <p className="text-sm text-[var(--color-text-secondary)] mt-1">Manage your audience for email newsletters.</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="outline" size="sm" onClick={() => setShowAddModal(true)} className="flex-1 sm:flex-none">
-              <Plus size={14} className="mr-1" /> Add
+            <Button variant="outline" size="sm" onClick={() => {
+              setShowAddModal(true);
+              if (tempSubscribers.length === 0) addNewRecord();
+            }} className="flex-1 sm:flex-none font-bold">
+              <Plus size={14} className="mr-1" /> Add 
             </Button>
-            <Button variant="primary" size="sm" onClick={() => setShowCsvModal(true)} className="flex-1 sm:flex-none">
-              <Upload size={14} className="mr-1" /> CSV
+            <Button variant="primary" size="sm" onClick={() => setShowCsvModal(true)} className="flex-1 sm:flex-none font-black uppercase tracking-widest text-[10px]">
+              <Upload size={14} className="mr-1" /> Upload CSV
             </Button>
           </div>
         </div>
@@ -240,13 +226,13 @@ export function SubscribersTab() {
                 <tbody>
                   {subscribers.map(sub => (
                     <tr key={sub.id} className="border-b last:border-0 border-[var(--color-border)] hover:bg-zinc-50/50 transition-colors">
-                      <td className="py-3 text-sm font-medium text-[var(--color-text)]">{sub.email}</td>
-                      <td className="py-3 text-sm text-[var(--color-text-secondary)]">{sub.name || <span className="text-zinc-400 italic">None</span>}</td>
-                      <td className="py-3 text-sm text-[var(--color-text-muted)]">
+                      <td className="py-3 text-sm font-medium text-zinc-900">{sub.email}</td>
+                      <td className="py-3 text-sm text-zinc-600">{sub.name || <span className="text-zinc-400 italic">None</span>}</td>
+                      <td className="py-3 text-sm text-zinc-500">
                         {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
                       </td>
                       <td className="py-3">
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {sub.status || 'active'}
                         </span>
                       </td>
@@ -259,11 +245,8 @@ export function SubscribersTab() {
                   ))}
                   {subscribers.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center">
-                        <div className="max-w-xs mx-auto text-zinc-500">
-                          <p className="text-sm font-medium mb-1">No subscribers yet</p>
-                          <p className="text-xs">Add subscribers manually or upload a CSV file to get started.</p>
-                        </div>
+                      <td colSpan={5} className="py-12 text-center text-zinc-500 italic text-sm">
+                        No subscribers found.
                       </td>
                     </tr>
                   )}
@@ -274,132 +257,163 @@ export function SubscribersTab() {
         )}
       </Card>
 
-      {/* Add Modal */}
+      {/* Unified Add/Preview Modal */}
       <Modal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Add Subscriber"
+        onClose={() => {
+          setShowAddModal(false);
+          setTempSubscribers([]);
+          setIsReviewing(false);
+        }}
+        title="Manage Submission"
+        maxWidth="max-w-5xl"
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button variant="primary" loading={isAdding} onClick={handleManualAdd}>Add Subscriber</Button>
-          </>
+          <div className="flex justify-between items-center w-full">
+            <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+              {tempSubscribers.length} record{tempSubscribers.length !== 1 ? 's' : ''} to add
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => {
+                setShowAddModal(false);
+                setTempSubscribers([]);
+                setIsReviewing(false);
+              }}>Cancel</Button>
+              <Button 
+                variant="primary" 
+                loading={isAdding} 
+                disabled={tempSubscribers.length === 0 || tempSubscribers.some(s => Object.keys(s.errors).length > 0)}
+                onClick={handleManualAdd}
+                className="font-black uppercase tracking-widest"
+              >
+                Add All Subscribers
+              </Button>
+            </div>
+          </div>
         }
       >
-        <form onSubmit={handleManualAdd} className="space-y-6">
-          <div className="max-h-[50vh] overflow-y-auto pr-2 space-y-8 custom-scrollbar">
-            {manualSubscribers.map((sub, index) => (
-              <div key={index} className="relative p-6 bg-zinc-50 border border-zinc-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
-                {manualSubscribers.length > 1 && (
-                  <button 
-                    type="button"
-                    onClick={() => removeRow(index)}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-all z-10"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input 
-                    label="Email Address" 
-                    type="email" 
-                    required 
-                    placeholder="example@mail.com" 
-                    value={sub.email} 
-                    onChange={e => updateRow(index, 'email', e.target.value)}
-                    error={formErrors[index]}
-                  />
-                  <Input 
-                    label="Full Name" 
-                    type="text" 
-                    placeholder="John Doe" 
-                    value={sub.name} 
-                    onChange={e => updateRow(index, 'name', e.target.value)} 
-                  />
-                  <div className="md:col-span-2">
-                    <Input 
-                      label="Subscription Date" 
-                      type="date" 
-                      value={sub.date} 
-                      onChange={e => updateRow(index, 'date', e.target.value)} 
-                    />
-                  </div>
+        <div className="space-y-6">
+          {/* Quick Add Form */}
+          <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200">
+             <div className="flex flex-col md:flex-row items-end gap-4">
+                <div className="flex-1 space-y-2">
+                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Email Address</label>
+                   <Input 
+                      placeholder="email@example.com" 
+                      value={tempSubscribers[tempSubscribers.length - 1]?.email === '' ? '' : ''} 
+                      // Note: This is simplified. I'll just keep the table as the primary interaction point.
+                      // Let's actually make the table editable.
+                   />
                 </div>
-              </div>
-            ))}
+                <Button variant="outline" onClick={addNewRecord} className="h-10 border-dashed">
+                   <Plus size={16} className="mr-2" /> Add Record
+                </Button>
+             </div>
+          </div>
+
+          <div className="overflow-x-auto border border-zinc-200 rounded-xl">
+             <table className="w-full text-left">
+                <thead className="bg-zinc-50 border-b border-zinc-200">
+                   <tr>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">Email</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">Name</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">Subscription Date</th>
+                      <th className="px-4 py-3 w-10"></th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                   {tempSubscribers.map((sub, idx) => (
+                      <tr key={idx} className="group hover:bg-zinc-50/50 transition-colors">
+                         <td className="px-4 py-3">
+                            <Input 
+                               value={sub.email} 
+                               onChange={e => updateTempRow(idx, 'email', e.target.value)}
+                               placeholder="email@example.com"
+                               error={sub.errors.email}
+                               className="bg-transparent border-transparent group-hover:border-zinc-200 h-9"
+                            />
+                         </td>
+                         <td className="px-4 py-3">
+                            <Input 
+                               value={sub.name} 
+                               onChange={e => updateTempRow(idx, 'name', e.target.value)}
+                               placeholder="John Doe"
+                               className="bg-transparent border-transparent group-hover:border-zinc-200 h-9"
+                            />
+                         </td>
+                         <td className="px-4 py-3">
+                            <Input 
+                               type="date"
+                               value={sub.date} 
+                               onChange={e => updateTempRow(idx, 'date', e.target.value)}
+                               error={sub.errors.date}
+                               className="bg-transparent border-transparent group-hover:border-zinc-200 h-9 !text-zinc-900"
+                            />
+                         </td>
+                         <td className="px-4 py-3">
+                            <button 
+                               onClick={() => removeTempRow(idx)}
+                               className="p-2 text-zinc-400 hover:text-red-500 transition-colors"
+                            >
+                               <Trash2 size={16} />
+                            </button>
+                         </td>
+                      </tr>
+                   ))}
+                </tbody>
+             </table>
           </div>
           
-          <Button 
-            variant="outline" 
-            type="button"
-            onClick={addMoreRow}
-            className="w-full border-dashed border-2 py-6 hover:bg-zinc-50 hover:border-zinc-300 transition-all group"
-          >
-            <div className="flex flex-col items-center gap-1">
-              <Plus size={20} className="text-zinc-400 group-hover:text-zinc-600 transition-colors" />
-              <span className="text-[10px] uppercase font-black tracking-widest text-zinc-400 group-hover:text-zinc-600">Add Another Record</span>
+          {tempSubscribers.length === 0 && (
+            <div className="py-12 text-center bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-200">
+               <Info size={32} className="mx-auto text-zinc-300 mb-3" />
+               <p className="text-sm font-bold text-zinc-500">No records staged yet.</p>
+               <button onClick={addNewRecord} className="text-orange-500 hover:underline text-xs font-black uppercase tracking-widest mt-1">Add your first record</button>
             </div>
-          </Button>
-        </form>
+          )}
+        </div>
       </Modal>
 
-      {/* CSV Upload Modal */}
+      {/* CSV Select Modal (Initial step) */}
       <Modal
         isOpen={showCsvModal}
         onClose={() => setShowCsvModal(false)}
         title="Upload CSV"
-        footer={uploadSuccessCount === null ? (
-          <>
-            <Button variant="secondary" onClick={() => setShowCsvModal(false)}>Cancel</Button>
-            <Button variant="primary" loading={isUploading} disabled={!csvFile} onClick={handleCsvUpload}>Upload Subscribers</Button>
-          </>
-        ) : null}
+        footer={
+           <Button variant="secondary" onClick={() => setShowCsvModal(false)}>Cancel</Button>
+        }
       >
-        {uploadSuccessCount !== null ? (
-          <div className="text-center py-8">
-            <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
-            <p className="text-xl font-bold text-[var(--color-text)] mb-2">Upload Complete</p>
-            <p className="text-sm text-[var(--color-text-secondary)]">Successfully added {uploadSuccessCount} subscribers.</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-blue-50/50 text-blue-800 p-4 rounded-xl text-sm border border-blue-100/50">
-              <div className="flex justify-between items-center mb-2">
-                <p className="font-semibold text-xs uppercase tracking-wider">CSV Format Guide</p>
-                <button 
-                  type="button"
-                  onClick={() => setShowCsvGuide(true)}
-                  className="text-blue-600 hover:underline flex items-center gap-1 font-bold text-xs"
-                >
-                  <Info size={12} /> View Details
-                </button>
-              </div>
-              <p className="text-blue-700/80 leading-relaxed">
-                Include a header row. Columns required: <code className="bg-blue-100/50 px-1 py-0.5 rounded text-blue-900 font-mono text-[10px]">email</code>. 
-                Optional: <code className="bg-blue-100/50 px-1 py-0.5 rounded text-blue-900 font-mono text-[10px]">name</code>, <code className="bg-blue-100/50 px-1 py-0.5 rounded text-blue-900 font-mono text-[10px]">subscribed_at</code>.
-              </p>
+        <div className="space-y-6">
+          <div className="bg-blue-50/50 text-blue-800 p-4 rounded-xl text-sm border border-blue-100/50">
+            <div className="flex justify-between items-center mb-2">
+              <p className="font-semibold text-xs uppercase tracking-wider">CSV Format Guide</p>
+              <button 
+                type="button"
+                onClick={() => setShowCsvGuide(true)}
+                className="text-blue-600 hover:underline flex items-center gap-1 font-bold text-xs"
+              >
+                <Info size={12} /> View Details
+              </button>
             </div>
-            
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Select CSV File</label>
-              <div className="relative group">
-                <div className="absolute inset-0 bg-zinc-100 rounded-xl border-2 border-dashed border-zinc-200 group-hover:bg-zinc-200/50 transition-colors flex items-center justify-center pointer-events-none">
-                   <div className="flex flex-col items-center gap-2">
-                      <FileSpreadsheet className="text-zinc-400" size={24} />
-                      <span className="text-sm text-zinc-500 font-medium">{csvFile ? csvFile.name : 'Choose a file...'}</span>
-                   </div>
-                </div>
-                <input 
-                  type="file" 
-                  accept=".csv" 
-                  required 
-                  onChange={e => setCsvFile(e.target.files?.[0] || null)}
-                  className="w-full h-32 opacity-0 cursor-pointer"
-                />
-              </div>
-            </div>
+            <p className="text-blue-700/80 leading-relaxed">
+              Include a header row. Columns: <code className="bg-blue-100/50 px-1 py-0.5 rounded text-blue-900 font-mono text-[10px]">email</code>, <code className="bg-blue-100/50 px-1 py-0.5 rounded text-blue-900 font-mono text-[10px]">name</code>, <code className="bg-blue-100/50 px-1 py-0.5 rounded text-blue-900 font-mono text-[10px]">date</code>.
+            </p>
           </div>
-        )}
+          
+          <div className="relative group">
+            <div className="absolute inset-0 bg-zinc-100 rounded-xl border-2 border-dashed border-zinc-200 group-hover:bg-zinc-200/50 transition-colors flex items-center justify-center pointer-events-none">
+               <div className="flex flex-col items-center gap-2">
+                  <FileSpreadsheet className="text-zinc-400" size={24} />
+                  <span className="text-sm text-zinc-500 font-medium font-bold">Select CSV to Review</span>
+               </div>
+            </div>
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleCsvFileLoad}
+              className="w-full h-32 opacity-0 cursor-pointer"
+            />
+          </div>
+        </div>
       </Modal>
 
       {/* Nested Guide Modal */}

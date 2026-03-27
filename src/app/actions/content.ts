@@ -282,8 +282,8 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
         throw new Error(`n8n webhook failed: ${response.status} ${errorText}`);
       }
       
-      // Update local status to prevent clicking twice
-      await supabase.from('platform_posts').update({ status: 'published' }).eq('id', postId);
+      // Note: Status update is handled by n8n workflow after completion
+      // to ensure consistency between the platform and the database.
       
       return { success: true };
     } catch (err) {

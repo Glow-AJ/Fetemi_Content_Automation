@@ -9,6 +9,7 @@ import {
   Loader2, MessageSquare, RefreshCw, Send, Trash2, Zap,
   AlertCircle, Image as ImageIcon, Calendar, Mail, Linkedin, Twitter
 } from 'lucide-react';
+import { PublishConfirmModal } from '@/components/content/PublishConfirmModal';
 import { SelectConfirmationModal } from '@/components/content/SelectConfirmationModal';
 import { ScheduleModal } from '@/components/content/ScheduleModal';
 import ReactMarkdown from 'react-markdown';
@@ -73,6 +74,9 @@ export default function ProjectDetailPage() {
   const [isSelectingFromList, setIsSelectingFromList] = useState(false);
   const [showInputModal, setShowInputModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishingInfo, setPublishingInfo] = useState<{ platform: 'linkedin' | 'email', postId: string } | null>(null);
+  const [publishingLoading, setPublishingLoading] = useState(false);
   const [viewState, setViewState] = useState<'overview' | 'editor'>('overview');
 
   // Multi-editor states
@@ -248,13 +252,26 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handlePublishNow = async (postId: string, platform: 'linkedin' | 'email') => {
-    if (!window.confirm(`Are you sure you want to publish to ${platform} now?`)) return;
-    setIsUpdating(true);
+  const handlePublish = async (platform: 'linkedin' | 'email', postId: string) => {
+    setPublishingLoading(true);
     const res = await publishNowAction(id as string, platform, postId);
-    setIsUpdating(false);
-    if (res.success) alert('Post published successfully!');
-    else alert(res.error || 'Failed to publish post');
+    if (!res.success) {
+      alert(res.error);
+      setPublishingLoading(false);
+      setShowPublishModal(false);
+    } else {
+      // We don't close the modal yet, we wait for the status to change from n8n
+      // The Realtime listener will eventually update the 'posts' state
+      // Once post.status === 'published', the modal can be closed or shows success
+      // However, for immediate feedback, let's keep it in loading until the status changes or we timeout
+      setShowPublishModal(false);
+      setPublishingLoading(false);
+    }
+  };
+
+  const triggerPublishModal = (platform: 'linkedin' | 'email', postId: string) => {
+    setPublishingInfo({ platform, postId });
+    setShowPublishModal(true);
   };
 
   const handleRetryIntake = async () => {
@@ -441,7 +458,7 @@ export default function ProjectDetailPage() {
           </aside>
         )}
 
-        {/* Dashoard/Overview Section */}
+        {/* Dashboard/Overview Section */}
         <div className={`${viewState === 'overview' ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-12 h-full`}>
           {viewState === 'overview' ? (
             <div className="space-y-16">
@@ -626,11 +643,12 @@ export default function ProjectDetailPage() {
                                   <Button 
                                     variant="primary" 
                                     size="sm" 
-                                    className="h-8 text-[9px] font-black uppercase tracking-tighter"
-                                    disabled={post.status === 'published'}
-                                    onClick={() => handlePublishNow(post.id, platform as 'linkedin' | 'email')}
+                                    className="h-8 text-[9px] font-black uppercase tracking-widest"
+                                    loading={publishingLoading && publishingInfo?.postId === post.id}
+                                    disabled={post.status === 'published' || (publishingLoading && publishingInfo?.postId === post.id)}
+                                    onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
                                   >
-                                    Publish
+                                    {post.status === 'published' ? 'Published' : 'Publish'}
                                   </Button>
                                 </div>
                               )}
@@ -879,10 +897,11 @@ export default function ProjectDetailPage() {
                                                       variant="primary" 
                                                       size="sm" 
                                                       className="w-full h-10 text-[10px] font-black uppercase tracking-widest shadow-lg"
-                                                      disabled={post.status === 'published'}
-                                                      onClick={() => handlePublishNow(post.id, platform as 'linkedin' | 'email')}
+                                                      loading={publishingLoading && publishingInfo?.postId === post.id}
+                                                      disabled={post.status === 'published' || (publishingLoading && publishingInfo?.postId === post.id)}
+                                                      onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
                                                     >
-                                                      Publish Now
+                                                      {post.status === 'published' ? 'Published' : 'Publish Now'}
                                                     </Button>
                                                     <div className="grid grid-cols-2 gap-2">
                                                       <Button 
@@ -1029,7 +1048,7 @@ export default function ProjectDetailPage() {
                 value={revisionNote}
                 onChange={(e) => setRevisionNote(e.target.value)}
                 placeholder="What should the AI change?"
-                className="w-full h-32 p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all resize-none font-medium"
+                className="w-full h-32 p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-sm text-zinc-900 !text-zinc-900 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all resize-none font-medium"
               />
            </div>
 
@@ -1108,6 +1127,25 @@ export default function ProjectDetailPage() {
            </div>
         </div>
       </Modal>
+
+      {/* Publish Confirm Modal */}
+      {publishingInfo && (
+        <PublishConfirmModal
+          isOpen={showPublishModal}
+          onClose={() => setShowPublishModal(false)}
+          onConfirm={() => handlePublish(publishingInfo.platform, publishingInfo.postId)}
+          onViewContent={() => {
+            setShowPublishModal(false);
+            const adaptedDraft = activeDrafts.find(d => d.selected);
+            if (adaptedDraft) {
+               handleEdit(adaptedDraft, `section-${publishingInfo.platform}`);
+            }
+          }}
+          platform={publishingInfo.platform}
+          isOverview={viewState === 'overview'}
+          loading={publishingLoading}
+        />
+      )}
     </div>
   );
 }

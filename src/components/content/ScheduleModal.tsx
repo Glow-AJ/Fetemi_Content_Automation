@@ -25,8 +25,12 @@ export function ScheduleModal({
 
   const handleSchedule = () => {
     if (!date || !time) return;
-    const isoString = new Date(`${date}T${time}`).toISOString();
-    onConfirm(isoString);
+    const selected = new Date(`${date}T${time}`);
+    if (selected < new Date()) {
+      alert("You cannot schedule a post in the past.");
+      return;
+    }
+    onConfirm(selected.toISOString());
   };
 
   return (
@@ -42,6 +46,7 @@ export function ScheduleModal({
               <input 
                 type="date"
                 value={date}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-900 focus:outline-none focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/5 transition-all outline-none cursor-pointer"
               />
