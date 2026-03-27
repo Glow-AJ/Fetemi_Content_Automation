@@ -106,8 +106,7 @@ export async function selectDraftAction(jobId: string, draftId: string) {
 
   if (selectError) return { success: false, error: selectError.message };
 
-  // 2. Update job status
-  await supabase.from('content_jobs').update({ status: 'adapting' }).eq('id', jobId);
+  // 2. Job status update removed (Controlled by n8n workflow)
 
   // 3. Trigger Adaptation Webhook
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_SELECT_DRAFT;
@@ -132,9 +131,7 @@ export async function selectDraftAction(jobId: string, draftId: string) {
       }
     } catch (err) {
       console.error('[Action] Adaptation webhook failed:', err);
-      // Even if webhook fails, we revert the job status to allow retry
-      await supabase.from('content_jobs').update({ status: 'drafting' }).eq('id', jobId);
-      return { success: false, error: 'Could not trigger platform adaptation. Please check your connection.' };
+      return { success: false, error: 'Could not trigger platform adaptation. Please check your connection and environment variables.' };
     }
   }
 
