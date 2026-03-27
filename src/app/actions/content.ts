@@ -112,27 +112,41 @@ export async function selectDraftAction(jobId: string, draftId: string) {
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_SELECT_DRAFT;
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (webhookUrl && webhookUrl !== 'placeholder' && user) {
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          job_id: jobId, 
-          draft_id: draftId,
-          user_id: user.id,
-          user_email: user.email
-        }),
-      });
+  console.log('[Action] SelectDraft triggered:', { jobId, draftId, userLink: !!user, urlSet: !!webhookUrl });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`n8n webhook failed: ${response.status} ${errorText}`);
-      }
-    } catch (err) {
-      console.error('[Action] Adaptation webhook failed:', err);
-      return { success: false, error: 'Could not trigger platform adaptation. Please check your connection and environment variables.' };
+  if (!user) {
+    console.error('[Action] Unauthorized: No user session found');
+    return { success: false, error: 'Unauthorized: No user session found. Please log in again.' };
+  }
+
+  if (!webhookUrl || webhookUrl === 'placeholder') {
+    console.error('[Action] Webhook skipped: URL is missing or placeholder');
+    return { success: false, error: 'Configuration Error: SELECT_DRAFT webhook URL is not set in environment variables.' };
+  }
+
+  try {
+    console.log('[Action] Firing webhook:', webhookUrl);
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        job_id: jobId, 
+        draft_id: draftId,
+        user_id: user.id,
+        user_email: user.email
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Action] Webhook response NOT OK:', response.status, errorText);
+      throw new Error(`n8n webhook failed: ${response.status} ${errorText}`);
     }
+
+    console.log('[Action] Webhook fire SUCCESS');
+  } catch (err) {
+    console.error('[Action] Adaptation webhook failed:', err);
+    return { success: false, error: 'Could not trigger platform adaptation. Please check your connection and environment variables.' };
   }
 
   revalidatePath(`/projects/${jobId}`);
