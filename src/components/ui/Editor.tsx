@@ -2,15 +2,18 @@
 
 import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { FloatingMenu, BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Markdown } from 'tiptap-markdown';
+import BubbleMenuExtension from '@tiptap/extension-bubble-menu';
+import FloatingMenuExtension from '@tiptap/extension-floating-menu';
 import { 
   Bold, Italic, List, ListOrdered, Link as LinkIcon, 
   Heading1, Heading2, Quote, Undo, Redo, 
   Code as CodeIcon, Image as ImageIcon,
-  CheckCircle2
+  CheckCircle2, PlusCircle
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -139,6 +142,8 @@ export const RichTextEditor = ({ content, onChange, editable = true }: RichTextE
         placeholder: 'Start writing your amazing story...',
       }),
       Markdown,
+      BubbleMenuExtension,
+      FloatingMenuExtension,
     ],
     content: content,
     editable,
@@ -149,22 +154,83 @@ export const RichTextEditor = ({ content, onChange, editable = true }: RichTextE
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose-base lg:prose-lg xl:prose-2xl focus:outline-none min-h-[400px] max-w-none p-6 text-[var(--color-text)]',
+        class: 'prose prose-sm sm:prose-base lg:prose-lg focus:outline-none min-h-[500px] max-w-none p-8 lg:p-12 text-zinc-900 selection:bg-orange-100',
       },
     },
   });
 
-  // Sync content if it changes externally
+  // Sync content if it changes externally (but not if we are editing)
   useEffect(() => {
-    // @ts-ignore - tiptap-markdown type issue
-    if (editor && content !== (editor as any).storage.markdown.getMarkdown()) {
+    if (!editor) return;
+    
+    // @ts-ignore
+    const currentMarkdown = (editor as any).storage.markdown.getMarkdown();
+    if (content !== currentMarkdown) {
       editor.commands.setContent(content);
     }
   }, [content, editor]);
 
+  // Update editable state
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(editable);
+    }
+  }, [editable, editor]);
+
   return (
     <div className="w-full border border-[var(--color-border)] rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-zinc-200">
       {editable && <MenuBar editor={editor} />}
+      
+      {editor && (
+        <>
+          <BubbleMenu editor={editor} className="flex bg-zinc-900 text-white rounded-lg p-1 shadow-xl ring-1 ring-white/10">
+            <button
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              className={`p-1.5 hover:bg-zinc-800 rounded transition-colors ${editor.isActive('bold') ? 'text-orange-400' : ''}`}
+            >
+              <Bold size={14} />
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              className={`p-1.5 hover:bg-zinc-800 rounded transition-colors ${editor.isActive('italic') ? 'text-orange-400' : ''}`}
+            >
+              <Italic size={14} />
+            </button>
+          </BubbleMenu>
+
+          <FloatingMenu editor={editor} className="flex flex-col bg-white border border-zinc-200 rounded-xl p-2 shadow-2xl ring-1 ring-zinc-200/50">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-2 pb-2 border-b border-zinc-100 mb-2">Insert Blocks</p>
+            <button
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg text-left group transition-colors"
+            >
+              <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-orange-100 group-hover:text-orange-600">
+                <Heading1 size={14} />
+              </div>
+              <span className="font-bold">Heading 1</span>
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg text-left group transition-colors"
+            >
+              <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-orange-100 group-hover:text-orange-600">
+                <Heading2 size={14} />
+              </div>
+              <span className="font-bold">Heading 2</span>
+            </button>
+            <button
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg text-left group transition-colors"
+            >
+              <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-orange-100 group-hover:text-orange-600">
+                <List size={14} />
+              </div>
+              <span className="font-bold">Bullet List</span>
+            </button>
+          </FloatingMenu>
+        </>
+      )}
+
       <EditorContent editor={editor} />
       <div className="px-4 py-2 bg-zinc-50 border-t border-[var(--color-border)] flex items-center justify-between text-[10px] uppercase tracking-widest font-bold text-zinc-400">
         <div className="flex items-center gap-2">

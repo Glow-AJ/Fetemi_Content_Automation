@@ -130,6 +130,13 @@ export default function ProjectDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [id, user, supabase]);
 
+  // Safeguard: Ensure editorContent is synced with selectedDraft
+  useEffect(() => {
+    if (selectedDraft && !editorContent && selectedDraft.content) {
+      setEditorContent(selectedDraft.content);
+    }
+  }, [selectedDraft, editorContent]);
+
   const handleSelectClick = (draft: Draft, fromList: boolean = false) => {
     setSelectedDraft(draft);
     setIsSelectingFromList(fromList);
@@ -314,16 +321,17 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-        {/* Status Timeline - STICKY */}
-        <aside className="lg:col-span-1 sticky top-8 self-start">
-          <Card className="border-none shadow-sm !bg-zinc-50/50 p-6">
-            <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-8">Pipeline Status</h3>
-          <div className="space-y-0">
-            {phases.map((phase, i) => {
-              const isDone = i < currentPhaseIndex || job.status === 'published';
-              const isCurrent = i === currentPhaseIndex && job.status !== 'published';
-              const isFailed = job.status === 'failed' && i === currentPhaseIndex;
+      <div className={`grid grid-cols-1 ${!selectedDraft ? 'lg:grid-cols-4' : ''} gap-8 items-start`}>
+        {/* Status Timeline - STICKY (Hide when draft is selected) */}
+        {!selectedDraft && (
+          <aside className="lg:col-span-1 sticky top-8 self-start transition-all animate-in slide-in-from-left duration-300">
+            <Card className="border-none shadow-sm !bg-zinc-50/50 p-6">
+              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-8">Pipeline Status</h3>
+            <div className="space-y-0">
+              {phases.map((phase, i) => {
+                const isDone = i < currentPhaseIndex || job.status === 'published';
+                const isCurrent = i === currentPhaseIndex && job.status !== 'published';
+                const isFailed = job.status === 'failed' && i === currentPhaseIndex;
 
               return (
                 <div key={phase.key} className="flex gap-4">
@@ -346,12 +354,13 @@ export default function ProjectDetailPage() {
                 </div>
               );
             })}
-          </div>
-          </Card>
-        </aside>
+            </div>
+            </Card>
+          </aside>
+        )}
 
         {/* Drafts Section */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className={`${!selectedDraft ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-4 h-full`}>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-bold text-zinc-900">Article Drafts</h3>
           </div>
@@ -507,9 +516,9 @@ export default function ProjectDetailPage() {
                       <div className="flex-1 overflow-y-auto p-8 lg:p-12 custom-scrollbar">
                         {viewMode === 'view' ? (
                           <div className="max-w-3xl mx-auto">
-                            <div className="prose prose-sm max-w-none prose-zinc prose-headings:font-black prose-headings:text-zinc-900 prose-p:text-zinc-600 prose-p:leading-relaxed prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-zinc-900 prose-ul:list-disc prose-ol:list-decimal">
+                            <div className="prose prose-zinc prose-sm md:prose-base max-w-3xl mx-auto prose-headings:font-black prose-headings:text-zinc-900 prose-p:text-zinc-600 prose-p:leading-relaxed prose-a:text-orange-600 prose-a:font-bold prose-strong:text-zinc-900 prose-ul:list-disc prose-ol:list-decimal selection:bg-orange-100">
                               <ReactMarkdown>
-                                {editorContent}
+                                {editorContent || selectedDraft.content || ''}
                               </ReactMarkdown>
                             </div>
                           </div>
@@ -518,6 +527,7 @@ export default function ProjectDetailPage() {
                             <RichTextEditor 
                               content={editorContent} 
                               onChange={setEditorContent} 
+                              editable={viewMode === 'edit'}
                             />
                           </div>
                         )}
