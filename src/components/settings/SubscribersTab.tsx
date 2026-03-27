@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { 
-  Users, Mail, Trash2, CheckCircle2, 
+  Users, Trash2, 
   Loader2, Plus, Upload, Info, FileSpreadsheet 
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -17,7 +17,7 @@ type Subscriber = Database['public']['Tables']['subscribers']['Row'];
 
 export function SubscribersTab() {
   const { user } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,20 +34,19 @@ export function SubscribersTab() {
     date: string;
     errors: { email?: string; date?: string };
   }[]>([]);
-  const [isReviewing, setIsReviewing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchSubscribers();
-  }, [user]);
-
-  const fetchSubscribers = async () => {
-    setLoading(true);
+  const fetchSubscribers = useCallback(async () => {
     const { data } = await supabase.from('subscribers').select('*').order('created_at', { ascending: false });
     if (data) setSubscribers(data);
     setLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!user) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchSubscribers();
+  }, [user, fetchSubscribers]);
 
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -66,7 +65,6 @@ export function SubscribersTab() {
       ...tempSubscribers, 
       { email: '', name: '', date: new Date().toISOString().split('T')[0], errors: {} }
     ]);
-    setIsReviewing(true);
   };
 
   const updateTempRow = (index: number, field: string, value: string) => {
@@ -90,7 +88,6 @@ export function SubscribersTab() {
   const removeTempRow = (index: number) => {
     const next = tempSubscribers.filter((_, i) => i !== index);
     setTempSubscribers(next);
-    if (next.length === 0) setIsReviewing(false);
   };
 
   const handleManualAdd = async () => {
@@ -117,7 +114,6 @@ export function SubscribersTab() {
     
     if (!error) {
       setShowAddModal(false);
-      setIsReviewing(false);
       setTempSubscribers([]);
       fetchSubscribers();
     } else {
@@ -165,7 +161,6 @@ export function SubscribersTab() {
 
       if (parsed.length > 0) {
         setTempSubscribers([...tempSubscribers, ...parsed]);
-        setIsReviewing(true);
         setShowCsvModal(false);
         setShowAddModal(true);
       } else {
@@ -263,7 +258,6 @@ export function SubscribersTab() {
         onClose={() => {
           setShowAddModal(false);
           setTempSubscribers([]);
-          setIsReviewing(false);
         }}
         title="Manage Submission"
         maxWidth="max-w-5xl"
@@ -276,7 +270,6 @@ export function SubscribersTab() {
               <Button variant="secondary" onClick={() => {
                 setShowAddModal(false);
                 setTempSubscribers([]);
-                setIsReviewing(false);
               }}>Cancel</Button>
               <Button 
                 variant="primary" 

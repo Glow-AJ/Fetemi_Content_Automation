@@ -4,9 +4,8 @@
 // Dedup and hashing are handled by n8n, not the frontend.
 // ==========================================
 
-import { SupabaseClient } from '@supabase/supabase-js';
 import { SOCIAL_DOMAINS, KNOWN_PAYWALL_DOMAINS } from './constants';
-import type { UrlType, InputType } from '@/types/database';
+import type { UrlType } from '@/types/database';
 
 // ─── URL Validation ─────────────────────────────────────────────
 

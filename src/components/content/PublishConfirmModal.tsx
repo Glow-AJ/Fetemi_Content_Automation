@@ -3,7 +3,7 @@
 import React from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { AlertCircle, Eye, Rocket, X } from 'lucide-react';
+import { AlertCircle, Eye, Rocket } from 'lucide-react';
 
 interface PublishConfirmModalProps {
   isOpen: boolean;

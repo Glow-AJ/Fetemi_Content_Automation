@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { 
-  ArrowLeft, Check, ChevronRight, Clock, Edit3, Eye, FileText, Globe, 
+  ArrowLeft, Check, Clock, Edit3, Eye, FileText, Globe, 
   Loader2, MessageSquare, RefreshCw, Send, Trash2, Zap,
   AlertCircle, Image as ImageIcon, Calendar, Mail, Linkedin, Twitter
 } from 'lucide-react';
@@ -43,11 +43,7 @@ const phases = [
   { key: 'published', label: 'Published' },
 ];
 
-function seoColor(score: number) {
-  if (score >= 90) return { text: 'text-green-600', bg: 'bg-green-50' };
-  if (score >= 70) return { text: 'text-yellow-600', bg: 'bg-yellow-50' };
-  return { text: 'text-red-600', bg: 'bg-red-50' };
-}
+
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -76,7 +72,7 @@ export default function ProjectDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishingInfo, setPublishingInfo] = useState<{ platform: 'linkedin' | 'email', postId: string } | null>(null);
-  const [publishingLoading, setPublishingLoading] = useState(false);
+
   const [viewState, setViewState] = useState<'overview' | 'editor'>('overview');
 
   // Multi-editor states
@@ -92,6 +88,7 @@ export default function ProjectDetailPage() {
     twitter: 'view',
     newsletter: 'view'
   });
+  const [inFlightPublishing, setInFlightPublishing] = useState<string[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     article: true,
     linkedin: true,
@@ -166,6 +163,15 @@ export default function ProjectDetailPage() {
         supabase.from('platform_posts').select('*').eq('job_id', id).then(res => {
           if (res.data) {
             setPosts(res.data);
+            
+            // Clear in-flight status if post reached target state
+            setInFlightPublishing(prev => 
+              prev.filter(id => {
+                const post = res.data.find(p => p.id === id);
+                return post?.status !== 'published';
+              })
+            );
+
             const newContents: Record<string, string> = { linkedin: '', twitter: '', newsletter: '' };
             res.data.forEach(p => {
               if (p.platform === 'linkedin') newContents.linkedin = p.content || '';
@@ -253,19 +259,15 @@ export default function ProjectDetailPage() {
   };
 
   const handlePublish = async (platform: 'linkedin' | 'email', postId: string) => {
-    setPublishingLoading(true);
+    setPublishingInfo({ platform, postId });
+    setInFlightPublishing(prev => [...prev, postId]);
+    
     const res = await publishNowAction(id as string, platform, postId);
+    setShowPublishModal(false);
+
     if (!res.success) {
       alert(res.error);
-      setPublishingLoading(false);
-      setShowPublishModal(false);
-    } else {
-      // We don't close the modal yet, we wait for the status to change from n8n
-      // The Realtime listener will eventually update the 'posts' state
-      // Once post.status === 'published', the modal can be closed or shows success
-      // However, for immediate feedback, let's keep it in loading until the status changes or we timeout
-      setShowPublishModal(false);
-      setPublishingLoading(false);
+      setInFlightPublishing(prev => prev.filter(id => id !== postId));
     }
   };
 
@@ -481,15 +483,13 @@ export default function ProjectDetailPage() {
                       );
                     }
 
-                    const score = (draft.seo_validation_score as { score?: number } | null)?.score || 0;
-                    const sc = seoColor(score);
                     return (
                       <Card 
                         key={draft.id} 
                         onClick={() => handleEdit(draft)}
                         className={`relative border border-zinc-100 shadow-sm hover:shadow-md transition-all group overflow-hidden flex flex-col p-6 cursor-pointer ${draft.selected ? 'ring-2 ring-orange-500' : ''} ${isSelectedElsewhere ? 'opacity-70' : ''}`}
                       >
-                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex justify-between items-start mb-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-500 group-hover:bg-orange-100 group-hover:text-orange-600 transition-colors">
                               <FileText size={18} />
@@ -499,8 +499,8 @@ export default function ProjectDetailPage() {
                               <p className="text-sm font-bold text-zinc-900 mt-1 line-clamp-1">{draft.angle || 'General Draft'}</p>
                             </div>
                           </div>
-                          <div className={`px-2 py-0.5 rounded text-[10px] font-black ${sc.bg} ${sc.text} border border-current/10`}>
-                             {score}%
+                          <div className="px-2 py-0.5 rounded text-[10px] font-black bg-zinc-50 text-zinc-400 border border-current/10">
+                             Draft
                           </div>
                         </div>
                         
@@ -566,7 +566,6 @@ export default function ProjectDetailPage() {
                       const post = posts.find(p => p.platform === platform);
                       const iconMap = { linkedin: Linkedin, twitter: Twitter, email: Mail };
                       const Icon = iconMap[platform as keyof typeof iconMap];
-                      const platformKey = platform === 'email' ? 'newsletter' : platform;
 
                       if (!post && job.status !== 'adapting') return null;
 
@@ -640,16 +639,16 @@ export default function ProjectDetailPage() {
                                   >
                                     Schedule
                                   </Button>
-                                  <Button 
-                                    variant="primary" 
-                                    size="sm" 
-                                    className="h-8 text-[9px] font-black uppercase tracking-widest"
-                                    loading={publishingLoading && publishingInfo?.postId === post.id}
-                                    disabled={post.status === 'published' || (publishingLoading && publishingInfo?.postId === post.id)}
-                                    onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
-                                  >
-                                    {post.status === 'published' ? 'Published' : 'Publish'}
-                                  </Button>
+                                    <Button 
+                                      variant="primary" 
+                                      size="sm" 
+                                      className="h-8 text-[9px] font-black uppercase tracking-widest"
+                                      loading={inFlightPublishing.includes(post.id)}
+                                      disabled={post.status === 'published' || inFlightPublishing.includes(post.id)}
+                                      onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
+                                    >
+                                      {post.status === 'published' ? 'Published' : 'Publish'}
+                                    </Button>
                                 </div>
                               )}
                             </div>
@@ -731,14 +730,20 @@ export default function ProjectDetailPage() {
                           <div className="sticky top-12 space-y-6">
                              <Card className="border-none bg-zinc-50 p-8 rounded-3xl">
                                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
-                                <div className="space-y-6">
-                                   <div className="flex justify-between items-center">
-                                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Score</span>
-                                      <span className={`text-base font-black ${seoColor((selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0).text}`}>
-                                        {(selectedDraft.seo_validation_score as { score?: number } | null)?.score || 0}%
-                                      </span>
-                                   </div>
-                                </div>
+                                 <div className="space-y-6">
+                                    <div className="flex justify-between items-center">
+                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Metric</span>
+                                       <span className="text-base font-black text-zinc-900">
+                                         Primary Draft
+                                       </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Word Count</span>
+                                       <span className="text-base font-black text-zinc-900">
+                                         {selectedDraft.word_count || 0}
+                                       </span>
+                                    </div>
+                                 </div>
                                 <div className="mt-8 pt-8 border-t border-zinc-200/50 space-y-3">
                                    {!selectedDraft.selected ? (
                                      <Button 
@@ -897,8 +902,8 @@ export default function ProjectDetailPage() {
                                                       variant="primary" 
                                                       size="sm" 
                                                       className="w-full h-10 text-[10px] font-black uppercase tracking-widest shadow-lg"
-                                                      loading={publishingLoading && publishingInfo?.postId === post.id}
-                                                      disabled={post.status === 'published' || (publishingLoading && publishingInfo?.postId === post.id)}
+                                                      loading={inFlightPublishing.includes(post.id)}
+                                                      disabled={post.status === 'published' || inFlightPublishing.includes(post.id)}
                                                       onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
                                                     >
                                                       {post.status === 'published' ? 'Published' : 'Publish Now'}
@@ -1143,7 +1148,7 @@ export default function ProjectDetailPage() {
           }}
           platform={publishingInfo.platform}
           isOverview={viewState === 'overview'}
-          loading={publishingLoading}
+          loading={inFlightPublishing.includes(publishingInfo.postId)}
         />
       )}
     </div>
