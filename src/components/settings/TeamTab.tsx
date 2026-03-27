@@ -33,8 +33,8 @@ export function TeamTab() {
         setInviteSuccess(false);
         setShowInviteModal(false);
       }, 2000);
-    } catch (err: any) {
-      setInviteError(err.message || 'Failed to send invite.');
+    } catch (err: unknown) {
+      setInviteError(err instanceof Error ? err.message : 'Failed to send invite.');
     } finally {
       setIsInviting(false);
     }

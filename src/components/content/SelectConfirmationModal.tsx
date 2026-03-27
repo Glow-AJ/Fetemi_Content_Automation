@@ -43,7 +43,7 @@ export function SelectConfirmationModal({
             Are you sure you want to proceed with:
           </p>
           <p className="text-sm font-bold text-zinc-900 mt-1 italic">
-            "{draftTitle || 'this article draft'}"
+            &quot;{draftTitle || 'this article draft'}&quot;
           </p>
         </div>
 

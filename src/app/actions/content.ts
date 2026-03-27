@@ -240,6 +240,19 @@ export async function updateDraftContentAction(draftId: string, content: string)
 }
 
 /**
+ * Manual Update - Save edits to a platform post
+ */
+export async function updatePostContentAction(postId: string, content: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('platform_posts')
+    .update({ content })
+    .eq('id', postId);
+
+  return { success: !error, error: error?.message };
+}
+
+/**
  * Publishing - LinkedIn or Email only
  */
 export async function publishNowAction(jobId: string, platform: 'linkedin' | 'email', postId: string) {

@@ -42,8 +42,8 @@ export function ProfileTab() {
       setProfileSuccess(true);
       router.refresh();
       setTimeout(() => setProfileSuccess(false), 2000);
-    } catch (err: any) {
-      setProfileError(err.message || 'Failed to update profile');
+    } catch (err: unknown) {
+      setProfileError(err instanceof Error ? err.message : 'Failed to update profile');
     } finally {
       setLoadingProfile(false);
     }
@@ -86,8 +86,8 @@ export function ProfileTab() {
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => setPasswordSuccess(false), 2000);
-    } catch (err: any) {
-      setPasswordError(err.message || 'Failed to update password');
+    } catch (err: unknown) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to update password');
     } finally {
       setLoadingPassword(false);
     }

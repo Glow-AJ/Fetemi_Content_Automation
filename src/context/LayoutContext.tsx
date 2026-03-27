@@ -16,7 +16,10 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   // Load preference from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('sidebar-collapsed');
-    if (saved === 'true') setSidebarCollapsed(true);
+    if (saved === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSidebarCollapsed(true);
+    }
   }, []);
 
   const toggleSidebar = () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import { FloatingMenu, BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -12,8 +12,7 @@ import FloatingMenuExtension from '@tiptap/extension-floating-menu';
 import { 
   Bold, Italic, List, ListOrdered, Link as LinkIcon, 
   Heading1, Heading2, Quote, Undo, Redo, 
-  Code as CodeIcon, Image as ImageIcon,
-  CheckCircle2, PlusCircle
+  CheckCircle2
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -22,7 +21,7 @@ interface RichTextEditorProps {
   editable?: boolean;
 }
 
-const MenuBar = ({ editor }: { editor: any }) => {
+const MenuBar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) return null;
 
   const addLink = () => {
@@ -147,9 +146,10 @@ export const RichTextEditor = ({ content, onChange, editable = true }: RichTextE
     ],
     content: content,
     editable,
-    onUpdate: ({ editor }) => {
-      // @ts-ignore - tiptap-markdown type issue
-      const markdown = (editor as any).storage.markdown.getMarkdown();
+    onUpdate: ({ editor: e }) => {
+      // Accessing markdown storage which is added by the extension
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const markdown = (e as any).storage.markdown.getMarkdown();
       onChange(markdown);
     },
     editorProps: {
@@ -163,7 +163,7 @@ export const RichTextEditor = ({ content, onChange, editable = true }: RichTextE
   useEffect(() => {
     if (!editor) return;
     
-    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const currentMarkdown = (editor as any).storage.markdown.getMarkdown();
     if (content !== currentMarkdown) {
       editor.commands.setContent(content);
