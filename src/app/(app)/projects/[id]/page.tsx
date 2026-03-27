@@ -132,10 +132,10 @@ export default function ProjectDetailPage() {
 
   // Safeguard: Ensure editorContent is synced with selectedDraft
   useEffect(() => {
-    if (selectedDraft && !editorContent && selectedDraft.content) {
+    if (selectedDraft && selectedDraft.content && (!editorContent || editorContent.trim().length === 0)) {
       setEditorContent(selectedDraft.content);
     }
-  }, [selectedDraft, editorContent]);
+  }, [selectedDraft?.id, selectedDraft?.content]);
 
   const handleSelectClick = (draft: Draft, fromList: boolean = false) => {
     setSelectedDraft(draft);
@@ -462,6 +462,9 @@ export default function ProjectDetailPage() {
                       <span className="text-xs text-zinc-400 font-medium">
                         Round #{selectedDraft.revision_round || 0}
                       </span>
+                      <span className="text-[10px] font-medium text-zinc-300 border border-zinc-100 px-1.5 py-0.5 rounded ml-2">
+                        {editorContent?.length || selectedDraft.content?.length || 0} chars
+                      </span>
                     </div>
                     <h2 className="text-xl font-black text-zinc-900">{selectedDraft.angle || 'Article Draft'}</h2>
                   </div>
@@ -516,10 +519,16 @@ export default function ProjectDetailPage() {
                       <div className="flex-1 overflow-y-auto p-8 lg:p-12 custom-scrollbar">
                         {viewMode === 'view' ? (
                           <div className="max-w-3xl mx-auto">
-                            <div className="prose prose-zinc prose-sm md:prose-base max-w-3xl mx-auto prose-headings:font-black prose-headings:text-zinc-900 prose-p:text-zinc-600 prose-p:leading-relaxed prose-a:text-orange-600 prose-a:font-bold prose-strong:text-zinc-900 prose-ul:list-disc prose-ol:list-decimal selection:bg-orange-100">
+                            <div className="prose prose-zinc prose-sm md:prose-base max-w-none prose-headings:font-black prose-p:leading-relaxed selection:bg-orange-100">
                               <ReactMarkdown>
                                 {editorContent || selectedDraft.content || ''}
                               </ReactMarkdown>
+
+                              {(!editorContent && !selectedDraft.content) && (
+                                <div className="mt-8 p-4 bg-zinc-50 border border-zinc-100 rounded-xl text-center">
+                                  <p className="text-sm text-zinc-400 font-medium italic">This draft has no content yet.</p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ) : (
