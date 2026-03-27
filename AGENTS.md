@@ -150,10 +150,16 @@ All with RLS enabled. Realtime replication enabled.
   - Draft selection and automatic platform adaptation trigger.
   - Manual draft editing with persistence.
   - Guided revision loop (3 rounds max) with instruction feedback to n8n.
+  - Integrated `PublishConfirmModal` for LinkedIn and Email to handle state-aware publishing steps.
 - **Platform Controls**: Added LinkedIn and Email publish/schedule controls. Implemented "Mark as Posted" for X (manual flow).
 - **Database Schema**: Added `revision_count` and `search_phrase` to `content_jobs`. Added `node_name`, `workflow_name`, `execution_url`, `error_description` to `job_errors`. Restored missing TS types.
 - **UI Cleanup**: Implemented global delete confirmation modal, fixed retry/duplicate layout issues, and isolated universal search component.
 - **Settings Overhaul**: Separated settings into Profile, Team, Platforms, and Subscribers tabs. Implemented Display Name updates, strict password changes, a functional Invite Member Server Action, and full Subscribers management with native CSV parsing for bulk imports.
+- **Advanced Validations & Production Hardening**:
+  - Enforced "No Future Date" for subscriber intake and "No Past Date" for post scheduling.
+  - Implemented a "Preview & Validate" phase for bulk subscriber management.
+  - Hardened form field visibility with `!text-zinc-900` across all modals.
+  - Successfully verified the entire codebase with a full production build (`next build`) before deployment.
 ### Next Steps
 1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron) using the standardized server-action payloads.
 2. **Platform API Integration**: Finalize LinkedIn and Email API connections in n8n.
