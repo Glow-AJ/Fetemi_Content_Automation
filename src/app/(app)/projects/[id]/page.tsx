@@ -871,9 +871,9 @@ export default function ProjectDetailPage() {
                     </div>
 
                     {expandedSections.article && (
-                      <div className="flex flex-col lg:flex-row gap-10 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+                      <div className="grid grid-cols-1 lg:grid-cols-[1fr,420px] gap-12 items-start animate-in fade-in slide-in-from-top-4 duration-300">
                         {/* Editor Main Content - EXPANSIVE */}
-                        <div className="flex-1 min-w-0 order-1">
+                        <div className="min-w-0">
                           <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
                             {selectedDraft.image_url && (
                               <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group border-b border-zinc-100">
@@ -897,8 +897,8 @@ export default function ProjectDetailPage() {
                         </div>
 
                         {/* Editor Sidebar - PERMANENT 420px & FLOATING */}
-                        <aside className="w-full lg:w-[420px] shrink-0 order-2 self-start">
-                          <div className="sticky top-24 space-y-6 pb-20">
+                        <aside className="w-full lg:w-[420px] h-full">
+                          <div className="sticky top-24 space-y-6 pb-20 z-10">
                              <Card className="border border-zinc-100 bg-zinc-50/50 p-6 rounded-3xl shadow-sm">
                                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
                                  <div className="space-y-6">
@@ -1056,8 +1056,8 @@ export default function ProjectDetailPage() {
                                </div>
 
                                 {expandedSections[platformKey] && (
-                                 <div className="flex flex-col lg:flex-row gap-10 items-start animate-in fade-in slide-in-from-top-4 duration-300">
-                                    <div className="flex-1 min-w-0 order-1">
+                                 <div className="grid grid-cols-1 lg:grid-cols-[1fr,420px] gap-12 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+                                    <div className="min-w-0">
                                        <div className="bg-white border border-zinc-100 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl shadow-zinc-200/50 min-h-[400px]">
                                           {viewModes[platformKey] === 'view' ? (
                                             <div className="max-w-none prose prose-zinc prose-lg selection:bg-orange-100 font-medium leading-relaxed">
@@ -1074,8 +1074,8 @@ export default function ProjectDetailPage() {
                                        </div>
                                     </div>
 
-                                    <div className="w-full lg:w-[420px] shrink-0 order-2 self-start">
-                                       <div className="sticky top-24 space-y-6 pb-20">
+                                    <div className="w-full lg:w-[420px] h-full">
+                                       <div className="sticky top-24 space-y-6 pb-20 z-10">
                                           <Card className="border-none bg-zinc-50 p-6 rounded-3xl">
                                              <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6">Status & Controls</h5>
                                              <div className="space-y-4">
@@ -1370,6 +1370,7 @@ export default function ProjectDetailPage() {
                  <p className="text-[11px] font-bold text-orange-800 italic mt-1 truncate max-w-xs">&quot;{job.search_phrase}&quot;</p>
               </div>
            </div>
+
 
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
