@@ -560,7 +560,7 @@ export default function ProjectDetailPage() {
           </aside>
         )}
 
-        <main className="lg:col-span-3 space-y-12">
+        <main className={`${viewState === 'overview' ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-12`}>
           {viewState === 'overview' ? (
             <div className="space-y-16">
               {/* 1. Article Drafts (Always visible in Overview) */}
