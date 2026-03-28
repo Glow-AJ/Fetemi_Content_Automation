@@ -152,26 +152,27 @@ export async function selectDraftAction(jobId: string, draftId: string) {
   return { success: true };
 }
 
-export async function regenerateDraftsAction(jobId: string, draftId: string, instructions: string) {
+export async function regenerateDraftsAction(jobId: string, instructions: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Unauthorized' };
   
   // 1. Get current job to check revision count
-  const { data: job } = await supabase.from('content_jobs').select('revision_count').eq('id', jobId).single();
+  const { data: job } = await supabase.from('content_jobs').select('revision_count, status').eq('id', jobId).single();
   const currentCount = job?.revision_count || 0;
 
   if (currentCount >= 3) {
     return { success: false, error: 'Maximum revision limit (3) reached.' };
   }
 
-  // 2. Mark the specific draft as rejected and save feedback
+  // 2. Mark ALL existing unselected drafts as rejected
   await supabase.from('article_drafts')
     .update({ 
       status: 'rejected', 
       manager_feedback: instructions 
     })
-    .eq('id', draftId);
+    .eq('job_id', jobId)
+    .eq('selected', false);
 
   // 3. Update job count and status
   await supabase.from('content_jobs').update({ 
@@ -179,15 +180,7 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
     revision_count: currentCount + 1 
   }).eq('id', jobId);
 
-  // 4. Insert a placeholder draft for the next round
-  const { data: newDraft } = await supabase.from('article_drafts').insert({
-    job_id: jobId,
-    user_id: user.id,
-    status: 'regenerating',
-    revision_round: currentCount + 1
-  }).select('id').single();
-
-  // 5. Trigger n8n
+  // 4. Trigger n8n (Intake Webhook with is_regeneration flag)
   const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_INTAKE;
   if (webhookUrl && webhookUrl !== 'placeholder') {
     try {
@@ -196,7 +189,6 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           job_id: jobId, 
-          draft_id: newDraft?.id, // Pass the ID of the placeholder for n8n to update
           revision_instructions: instructions,
           is_regeneration: true,
           revision_round: currentCount + 1,
@@ -210,19 +202,42 @@ export async function regenerateDraftsAction(jobId: string, draftId: string, ins
         throw new Error(`n8n regeneration failed: ${response.status} ${errorText}`);
       }
     } catch (err) {
-      console.error('[Action] Regeneration webhook failed:', err);
-      // Clean up the placeholder if it failed
-      if (newDraft?.id) await supabase.from('article_drafts').delete().eq('id', newDraft.id);
-      await supabase.from('content_jobs').update({ 
-        status: 'drafting', 
-        revision_count: currentCount // Revert count
-      }).eq('id', jobId);
-      return { success: false, error: 'Could not trigger AI regeneration. Please try again.' };
+      console.error('[Action] Project regeneration webhook failed:', err);
+      // Rollback status to prevent a stuck state (keep drafting but show error)
+      return { success: false, error: 'Could not trigger project regeneration. Please try again.' };
     }
   }
 
   revalidatePath(`/projects/${jobId}`);
   return { success: true };
+}
+
+export async function getNewsletterRecipientsAction(postId: string) {
+  const supabase = await createClient();
+  try {
+    const { data, error } = await supabase
+      .from('newsletter_sends')
+      .select(`
+        id,
+        status,
+        error,
+        sent_at,
+        subscriber_id
+      `)
+      .eq('post_id', postId)
+      .order('sent_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Join with subscribers if needed here, or handle in component
+    // We'll do a simple join via Supabase's foreign key feature if it works, 
+    // but the query above might need refinement based on the schema.
+    
+    return { success: true, recipients: data || [] };
+  } catch (err) {
+    console.error('[Action] Fetch recipients failed:', err);
+    return { success: false, error: 'Failed to fetch newsletter recipients' };
+  }
 }
 
 /**

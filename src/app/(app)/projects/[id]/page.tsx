@@ -25,11 +25,12 @@ import {
   retryIntakeAction,
   schedulePostAction,
   cancelScheduleAction,
-  markAsPostedAction
+  markAsPostedAction,
+  getNewsletterRecipientsAction
 } from '@/app/actions/content';
 import { Modal } from '@/components/ui/Modal';
 import { RichTextEditor } from '@/components/ui/Editor';
-import type { Job, Draft, PlatformPost } from '@/types/database';
+import type { Job, Draft, PlatformPost, SEOBrief } from '@/types/database';
 
 
 const phases = [
@@ -57,6 +58,7 @@ export default function ProjectDetailPage() {
   const [activeDrafts, setActiveDrafts] = useState<Draft[]>([]);
   const [revisionHistory, setRevisionHistory] = useState<Draft[]>([]);
   const [posts, setPosts] = useState<PlatformPost[]>([]);
+  const [seoBrief, setSeoBrief] = useState<SEOBrief | null>(null);
   
   // UI States
   const [isUpdating, setIsUpdating] = useState(false);
@@ -72,6 +74,10 @@ export default function ProjectDetailPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishingInfo, setPublishingInfo] = useState<{ platform: 'linkedin' | 'email', postId: string } | null>(null);
+  const [showRecipientsModal, setShowRecipientsModal] = useState(false);
+  const [viewingRecipientsPostId, setViewingRecipientsPostId] = useState<string | null>(null);
+  const [recipients, setRecipients] = useState<any[]>([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(false);
 
   const [viewState, setViewState] = useState<'overview' | 'editor'>('overview');
 
@@ -105,11 +111,12 @@ export default function ProjectDetailPage() {
     if (!user || !id) return;
 
     async function fetchData() {
-      const [jobRes, draftsRes, postsRes, errorRes] = await Promise.all([
+      const [jobRes, draftsRes, postsRes, errorRes, seoRes] = await Promise.all([
         supabase.from('content_jobs').select('*').eq('id', id).single(),
         supabase.from('article_drafts').select('*').eq('job_id', id).order('created_at', { ascending: false }),
         supabase.from('platform_posts').select('*').eq('job_id', id),
-        supabase.from('job_errors').select('*').eq('job_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        supabase.from('job_errors').select('*').eq('job_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('seo_briefs').select('*').eq('job_id', id).maybeSingle()
       ]);
 
       if (jobRes.data) setJob(jobRes.data);
@@ -133,6 +140,7 @@ export default function ProjectDetailPage() {
         setContents(prev => ({ ...prev, ...newContents }));
       }
       if (errorRes.data) setJobError(errorRes.data);
+      if (seoRes.data) setSeoBrief(seoRes.data);
       setLoading(false);
     }
 
@@ -198,9 +206,24 @@ export default function ProjectDetailPage() {
   const handleConfirmSelect = async () => {
     if (!selectedDraft || !job) return;
     setIsConfirmingSelect(false);
+    setIsUpdating(true);
     const res = await selectDraftAction(job.id, selectedDraft.id);
-    if (!res.success) {
-      alert(res.error || 'Failed to select draft');
+    setIsUpdating(false);
+    if (!res.success) alert(res.error || 'Failed to select draft');
+  };
+
+  const handleFetchRecipients = async (postId: string) => {
+    try {
+      setLoadingRecipients(true);
+      setViewingRecipientsPostId(postId);
+      setShowRecipientsModal(true);
+      const res = await getNewsletterRecipientsAction(postId);
+      if (res.success) setRecipients(res.recipients || []);
+      else alert(res.error || 'Failed to fetch recipients');
+    } catch (err) {
+      console.error('Recipients fetch error:', err);
+    } finally {
+      setLoadingRecipients(false);
     }
   };
 
@@ -295,24 +318,7 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handleRegenerateDrafts = async () => {
-    if (!revisionTargetId && !selectedDraft) return;
-    const targetId = revisionTargetId || selectedDraft?.id;
-    if (!targetId) return;
-    
-    setIsUpdating(true);
-    const res = await regenerateDraftsAction(id as string, targetId, revisionNote);
-    setIsUpdating(false);
-    
-    if (res.success) {
-      setShowRevisionModal(false);
-      setRevisionNote('');
-      setRevisionTargetId(null);
-      if (selectedDraft) setSelectedDraft(null); // Return to list if in editor
-    } else {
-      alert(res.error || 'Failed to trigger regeneration');
-    }
-  };
+
 
   const handleMarkAsPosted = async (postId: string) => {
     if (!window.confirm('Are you sure you want to mark this as posted? This will stop any further automation for this platform.')) return;
@@ -341,7 +347,41 @@ export default function ProjectDetailPage() {
   }
 
   // Logic Helpers
-  const currentPhaseIndex = phases.findIndex(p => p.key === job.status);
+  const handleRevisionSubmit = async () => {
+    if (!job || !revisionNote) return;
+    
+    try {
+      setIsUpdating(true);
+      const res = await regenerateDraftsAction(job.id, revisionNote);
+      if (res.success) {
+        setShowRevisionModal(false);
+        setRevisionNote('');
+      } else {
+        alert(res.error || 'Failed to request revision');
+      }
+    } catch (err) {
+      console.error('Revision error:', err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCancelSchedule = async (postId: string) => {
+    if (!confirm('Are you sure you want to cancel this scheduled post?')) return;
+    
+    try {
+      setIsUpdating(true);
+      const res = await cancelScheduleAction(postId);
+      if (!res.success) alert(res.error || 'Failed to cancel schedule');
+    } catch (err) {
+      console.error('Cancel schedule error:', err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const currentPhaseIndex = phases.findIndex(p => p.key === job?.status) || 0;
+  const hasSelectedDraft = activeDrafts.some(d => d.selected);
 
   const toggleSection = (id: string) => {
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -456,20 +496,62 @@ export default function ProjectDetailPage() {
                   );
                 })}
               </div>
+              
+              {/* SEO Brief Summary Sidebar */}
+              {seoBrief && (
+                <div className="mt-12 pt-8 border-t border-zinc-100 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                  <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">SEO Research Summary</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-1">Primary Keyword</p>
+                      <p className="text-sm font-bold text-zinc-900">{seoBrief.primary_keyword}</p>
+                    </div>
+                    {seoBrief.short_tail_keywords && seoBrief.short_tail_keywords.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">Short-tail</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {seoBrief.short_tail_keywords.map((kw, i) => (
+                            <span key={i} className="text-[9px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200 uppercase tracking-tighter">
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </aside>
         )}
 
-        {/* Dashboard/Overview Section */}
-        <div className={`${viewState === 'overview' ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-12 h-full`}>
+        <main className="lg:col-span-3 space-y-12">
           {viewState === 'overview' ? (
             <div className="space-y-16">
-              {/* 1. Article Drafts */}
-              <section>
+              {/* 1. Article Drafts (Always visible in Overview) */}
+              <section id="drafts" className="scroll-mt-24">
                 <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-bold text-zinc-900 uppercase tracking-widest">Article Drafts</h3>
-                  <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{activeDrafts.length} Unique Angles</div>
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-xl font-bold text-zinc-900 uppercase tracking-widest">Article Drafts</h3>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-zinc-900 text-white uppercase tracking-tighter">
+                      Rev {job.revision_count || 0}/3
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowRevisionModal(true)}
+                      disabled={hasSelectedDraft || isUpdating || (job.revision_count || 0) >= 3}
+                      className={`h-9 px-4 text-[10px] font-black uppercase tracking-widest ${hasSelectedDraft ? 'opacity-50' : 'text-orange-600 border-orange-200 hover:bg-orange-50'}`}
+                    >
+                      <RefreshCw size={14} className={isUpdating ? 'mr-2 animate-spin' : 'mr-2'} strokeWidth={3} />
+                      {hasSelectedDraft ? 'Selection Locked' : 'Revise All Drafts'}
+                    </Button>
+                  </div>
                 </div>
+                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{activeDrafts.length} Unique Angles</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {activeDrafts.length > 0 ? (
                   activeDrafts.map((draft, i) => {
@@ -630,25 +712,55 @@ export default function ProjectDetailPage() {
                                 </Button>
                               ) : (
                                 <div className="grid grid-cols-2 gap-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="h-8 text-[9px] font-black uppercase tracking-tighter border-zinc-200"
-                                    disabled={post.status === 'published'}
-                                    onClick={() => openScheduleModal(post.id, platform)}
-                                  >
-                                    Schedule
-                                  </Button>
+                                  {post.status === 'scheduled' ? (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-8 text-[9px] font-black uppercase tracking-tighter border-red-100 text-red-500 hover:bg-red-50"
+                                      onClick={() => handleCancelSchedule(post.id)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-8 text-[9px] font-black uppercase tracking-tighter border-zinc-200"
+                                      disabled={post.status === 'published'}
+                                      onClick={() => {
+                                        setSchedulingPostId(post.id);
+                                        setSchedulingPlatform(platform);
+                                        setScheduleModalOpen(true);
+                                      }}
+                                    >
+                                      Schedule
+                                    </Button>
+                                  )}
+                                  
+                                  {post.status === 'published' && platform === 'email' ? (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-8 text-[9px] font-black uppercase tracking-widest border-green-200 text-green-600 hover:bg-green-50"
+                                      onClick={() => handleFetchRecipients(post.id)}
+                                    >
+                                      Report
+                                    </Button>
+                                  ) : (
                                     <Button 
                                       variant="primary" 
                                       size="sm" 
                                       className="h-8 text-[9px] font-black uppercase tracking-widest"
                                       loading={inFlightPublishing.includes(post.id)}
                                       disabled={post.status === 'published' || inFlightPublishing.includes(post.id)}
-                                      onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
+                                      onClick={() => {
+                                        setPublishingInfo({ platform: platform as 'linkedin' | 'email', postId: post.id });
+                                        setShowPublishModal(true);
+                                      }}
                                     >
-                                      {post.status === 'published' ? 'Published' : 'Publish'}
+                                      {post.status === 'published' ? 'Sent' : 'Publish'}
                                     </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -955,11 +1067,11 @@ export default function ProjectDetailPage() {
                     </div>
                   )}
                 </>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </main>
         </div>
-      </div>
+
 
       {/* Job Errors Display */}
       {job.status === 'failed' && (jobError || job.error_message) && (
@@ -1062,7 +1174,7 @@ export default function ProjectDetailPage() {
               <Button 
                 variant="primary" 
                 className="flex-1 font-black uppercase tracking-widest text-xs h-12"
-                onClick={handleRegenerateDrafts}
+                onClick={handleRevisionSubmit}
                 disabled={!revisionNote.trim() || isUpdating}
                 loading={isUpdating}
               >
@@ -1151,6 +1263,64 @@ export default function ProjectDetailPage() {
           loading={inFlightPublishing.includes(publishingInfo.postId)}
         />
       )}
-    </div>
-  );
+      {/* Newsletter Recipients Modal */}
+      <Modal
+        isOpen={showRecipientsModal}
+        onClose={() => setShowRecipientsModal(false)}
+        title="Newsletter Delivery Report"
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Recipients & Status</h4>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200 uppercase tracking-tighter">
+              {recipients.length} Total
+            </span>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+            {loadingRecipients ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="animate-spin text-orange-500" size={32} />
+              </div>
+            ) : recipients.length > 0 ? (
+              recipients.map((rec, i) => (
+                <div key={rec.id} className="p-4 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-between group hover:bg-white hover:shadow-sm transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-[10px] font-black text-zinc-500">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-zinc-900 leading-none mb-1">{rec.subscribers?.email || 'Unknown'}</p>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter italic">
+                        {rec.created_at ? new Date(rec.created_at).toLocaleString() : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter border ${
+                    rec.status === 'sent' ? 'bg-green-100 text-green-600 border-green-200' :
+                    rec.status === 'failed' ? 'bg-red-100 text-red-600 border-red-200' :
+                    'bg-zinc-100 text-zinc-400 border-zinc-200'
+                  }`}>
+                    {rec.status}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-zinc-400">
+                <Mail className="mx-auto mb-3 opacity-20" size={32} />
+                <p className="text-xs font-bold uppercase tracking-widest">No delivery data available</p>
+              </div>
+            )}
+          </div>
+
+          <Button className="w-full font-bold" onClick={() => setShowRecipientsModal(false)}>Close Report</Button>
+        </div>
+      </Modal>
+    ) : (
+      <div className="flex items-center justify-center min-h-[600px]">
+        <Loader2 className="animate-spin text-orange-500" size={48} />
+      </div>
+    )}
+  </div>
+);
 }

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -582,6 +582,79 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          id: string
+          full_name: string | null
+          avatar_url: string | null
+          role: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      team_invitations: {
+        Row: {
+          id: string
+          email: string
+          inviter_id: string | null
+          status: "pending" | "accepted" | "expired" | null
+          expires_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          inviter_id?: string | null
+          status?: "pending" | "accepted" | "expired" | null
+          expires_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          inviter_id?: string | null
+          status?: "pending" | "accepted" | "expired" | null
+          expires_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_inviter_id_fkey"
+            columns: ["inviter_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -786,5 +859,8 @@ export const Constants = {
 export type Job = Database['public']['Tables']['content_jobs']['Row'];
 export type Draft = Database['public']['Tables']['article_drafts']['Row'];
 export type PlatformPost = Database['public']['Tables']['platform_posts']['Row'];
+export type SEOBrief = Database['public']['Tables']['seo_briefs']['Row'];
+export type TeamInvitation = Database['public']['Tables']['team_invitations']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type InputType = 'url' | 'idea';
 export type UrlType = 'social' | 'paywall' | 'standard';
