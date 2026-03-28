@@ -9,11 +9,12 @@ import { createClient } from '@/utils/supabase/client';
 interface PublishConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (customImageUrl?: string) => void;
+  onConfirm: (selection: 'none' | 'draft' | 'custom', customImageUrl?: string) => void;
   onViewContent?: () => void;
   platform: 'linkedin' | 'email' | 'newsletter';
   isOverview?: boolean;
   loading?: boolean;
+  draftImageUrl?: string;
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -25,12 +26,13 @@ export function PublishConfirmModal({
   onViewContent,
   platform,
   isOverview = false,
-  loading = false
+  loading = false,
+  draftImageUrl
 }: PublishConfirmModalProps) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [showUpload, setShowUpload] = useState(false);
+  const [imageSelection, setImageSelection] = useState<'none' | 'draft' | 'custom'>('draft');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -70,8 +72,8 @@ export function PublishConfirmModal({
   };
 
   const handleConfirmInternal = async () => {
-    if (!selectedFile) {
-      onConfirm();
+    if (imageSelection !== 'custom' || !selectedFile) {
+      onConfirm(imageSelection);
       return;
     }
 
@@ -91,7 +93,7 @@ export function PublishConfirmModal({
         .from('platform_media')
         .getPublicUrl(filePath);
 
-      onConfirm(publicUrl);
+      onConfirm('custom', publicUrl);
     } catch (err: any) {
       console.error('Upload failed:', err);
       setUploadError('Upload failed. Please try again or use default image.');
@@ -118,83 +120,96 @@ export function PublishConfirmModal({
           </div>
         </div>
 
-        {/* Custom Image Selection Section */}
-        <div className="p-5 rounded-2xl bg-zinc-50 border border-zinc-200 border-dashed">
-          {!showUpload ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Image Selection</p>
-                <div className="px-2 py-0.5 rounded bg-green-100/50 text-green-600 text-[9px] font-bold uppercase tracking-tighter">System Image Detected</div>
-              </div>
-              <div className="p-4 bg-white rounded-xl border border-zinc-100 shadow-sm flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-orange-50 text-orange-600">
-                    <ImageIcon size={16} />
-                  </div>
-                  <p className="text-xs font-bold text-zinc-900 uppercase tracking-tight">Use Draft Image</p>
+        {/* Image Selection Toggle */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Visual Selection</label>
+          <div className="grid grid-cols-3 gap-2 p-1.5 bg-zinc-100 rounded-2xl border border-zinc-200">
+             <button 
+                onClick={() => setImageSelection('draft')}
+                className={`py-2 rounded-xl text-[10px] font-black uppercase transition-all ${imageSelection === 'draft' ? 'bg-white text-orange-600 shadow-sm border border-zinc-200' : 'text-zinc-500 hover:text-zinc-700'}`}
+             >
+                Draft Image
+             </button>
+             <button 
+                onClick={() => setImageSelection('custom')}
+                className={`py-2 rounded-xl text-[10px] font-black uppercase transition-all ${imageSelection === 'custom' ? 'bg-white text-orange-600 shadow-sm border border-zinc-200' : 'text-zinc-500 hover:text-zinc-700'}`}
+             >
+                Custom
+             </button>
+             <button 
+                onClick={() => setImageSelection('none')}
+                className={`py-2 rounded-xl text-[10px] font-black uppercase transition-all ${imageSelection === 'none' ? 'bg-white text-zinc-900 shadow-sm border border-zinc-200' : 'text-zinc-500 hover:text-zinc-700'}`}
+             >
+                None (Text)
+             </button>
+          </div>
+
+          {/* Contextual UI based on selection */}
+          <div className="p-4 rounded-3xl bg-white border border-zinc-100 shadow-sm min-h-[140px] flex flex-col justify-center">
+            {imageSelection === 'draft' && (
+              <div className="flex gap-4 animate-in fade-in slide-in-from-left-2 duration-300">
+                <div className="w-24 h-24 rounded-2xl bg-zinc-100 overflow-hidden shrink-0 shadow-inner border border-zinc-200">
+                   {draftImageUrl ? (
+                     <img src={draftImageUrl} alt="Draft" className="w-full h-full object-cover" />
+                   ) : (
+                     <div className="w-full h-full flex items-center justify-center text-zinc-300">
+                        <ImageIcon size={24} />
+                     </div>
+                   )}
                 </div>
-                <button 
-                  onClick={() => setShowUpload(true)}
-                  className="text-[10px] font-black text-orange-600 hover:text-orange-700 uppercase tracking-widest px-3 py-1.5 bg-orange-50 hover:bg-orange-100 rounded-lg transition-all"
-                >
-                  Change to Custom
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between mb-4">
-                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Custom Graphic</label>
-                 <button 
-                  onClick={() => {
-                    setShowUpload(false);
-                    handleClearFile();
-                  }}
-                  className="text-[9px] font-black text-zinc-400 hover:text-zinc-600 uppercase tracking-widest"
-                 >
-                   Back to System Image
-                 </button>
-              </div>
-
-              {previewUrl ? (
-                <div className="relative rounded-xl overflow-hidden aspect-video bg-zinc-200 border border-zinc-200 group">
-                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                  <button 
-                    onClick={handleClearFile}
-                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-all"
-                  >
-                    <X size={14} />
-                  </button>
+                <div>
+                   <p className="text-xs font-black text-zinc-900 uppercase tracking-tight mb-1">Standard AI Asset</p>
+                   <p className="text-[10px] text-zinc-500 leading-relaxed">Using the high-resolution image generated during the SEO & Drafting phase.</p>
                 </div>
-              ) : (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full aspect-video rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2 hover:border-orange-500/50 hover:bg-orange-50/30 transition-all group"
-                >
-                  <div className="p-3 rounded-full bg-white text-zinc-400 group-hover:text-orange-500 shadow-sm transition-all">
-                     <Upload size={20} />
-                  </div>
-                  <p className="text-xs font-bold text-zinc-50 group-hover:text-zinc-600">Click to upload custom image</p>
-                  <p className="text-[9px] font-bold text-zinc-400">MAX 5MB</p>
-                </button>
-              )}
+              </div>
+            )}
 
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/*" 
-                onChange={handleFileSelect} 
-              />
-
-              {uploadError && (
-                 <div className="mt-3 flex items-center gap-2 text-red-600">
-                    <AlertCircle size={14} />
-                    <p className="text-[10px] font-bold uppercase tracking-tight">{uploadError}</p>
+            {imageSelection === 'none' && (
+              <div className="text-center animate-in fade-in slide-in-from-right-2 duration-300 py-2">
+                 <div className="mx-auto w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400 mb-2">
+                    <X size={20} />
                  </div>
-              )}
-            </div>
-          )}
+                 <p className="text-xs font-black text-zinc-900 uppercase tracking-tight">Pure Text Publication</p>
+                 <p className="text-[10px] text-zinc-500">No media will be attached to this post on {platformName}.</p>
+              </div>
+            )}
+
+            {imageSelection === 'custom' && (
+              <div className="animate-in fade-in zoom-in-95 duration-300">
+                {previewUrl ? (
+                  <div className="relative rounded-2xl overflow-hidden aspect-[2/1] bg-zinc-200 border border-zinc-200 group">
+                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button 
+                      onClick={handleClearFile}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-all"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-6 rounded-2xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2 hover:border-orange-500/50 hover:bg-orange-50/10 transition-all group"
+                  >
+                    <div className="p-3 rounded-full bg-zinc-50 text-zinc-400 group-hover:text-orange-500 shadow-sm transition-all">
+                       <Upload size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-zinc-900 uppercase tracking-tight text-center">Upload Post Graphic</p>
+                      <p className="text-[9px] font-bold text-zinc-400 text-center">JPG, PNG • MAX 5MB</p>
+                    </div>
+                  </button>
+                )}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleFileSelect} 
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-3">

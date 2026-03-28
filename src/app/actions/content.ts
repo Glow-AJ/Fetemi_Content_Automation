@@ -272,16 +272,23 @@ export async function updatePostContentAction(postId: string, content: string) {
 /**
  * Publishing - LinkedIn or Email only
  */
-export async function publishNowAction(jobId: string, platform: 'linkedin' | 'email', postId: string, customImageUrl?: string) {
+export async function publishNowAction(
+  jobId: string, 
+  platform: 'linkedin' | 'email', 
+  postId: string, 
+  imageSelection: 'none' | 'draft' | 'custom',
+  customImageUrl?: string
+) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) return { success: false, error: 'User not authenticated' };
 
-  // 1. If custom image provided, update the post record first
-  if (customImageUrl) {
-    await supabase.from('platform_posts').update({ custom_image_url: customImageUrl }).eq('id', postId);
-  }
+  // 1. Update the post record with selection and URL
+  await supabase.from('platform_posts').update({ 
+    image_selection: imageSelection,
+    custom_image_url: customImageUrl || null 
+  }).eq('id', postId);
 
   const webhookUrl = platform === 'linkedin' 
     ? process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH_LINKEDIN 
@@ -297,6 +304,7 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
           job_id: jobId, 
           user_id: user.id,
           user_email: user.email,
+          image_selection: imageSelection,
           custom_image_url: customImageUrl || null
         }),
       });
@@ -322,13 +330,19 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
 /**
  * Scheduling
  */
-export async function schedulePostAction(postId: string, scheduledTime: string, customImageUrl?: string) {
+export async function schedulePostAction(
+  postId: string, 
+  scheduledTime: string, 
+  imageSelection: 'none' | 'draft' | 'custom',
+  customImageUrl?: string
+) {
   const supabase = await createClient();
   const { error } = await supabase
     .from('platform_posts')
     .update({ 
       publish_at: scheduledTime,
       status: 'scheduled',
+      image_selection: imageSelection,
       custom_image_url: customImageUrl || null
     })
     .eq('id', postId);
@@ -392,6 +406,14 @@ export async function markJobAsPublishedAction(jobId: string) {
       published_at: new Date().toISOString()
     })
     .eq('id', jobId);
+
+  if (error) {
+    console.error('[Action] Error marking job as published:', error);
+  } else {
+    revalidatePath('/dashboard');
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${jobId}`);
+  }
 
   return { success: !error, error: error?.message };
 }

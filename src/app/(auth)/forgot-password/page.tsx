@@ -21,8 +21,10 @@ export default function ForgotPasswordPage() {
 
     try {
       const supabase = createClient();
+      // Use window.location.origin to ensure the reset link matches the current environment
+      const origin = window.location.origin;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://fetemi-content-automation.vercel.app'}/set-password`,
+        redirectTo: `${origin}/set-password`,
       });
       if (resetError) {
         setError(resetError.message);

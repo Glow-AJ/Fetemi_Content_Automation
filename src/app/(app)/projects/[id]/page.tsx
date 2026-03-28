@@ -309,29 +309,36 @@ export default function ProjectDetailPage() {
     setScheduleModalOpen(true);
   };
 
-  const handleScheduleConfirm = async (scheduledTime: string, customImageUrl?: string) => {
+  const handleScheduleConfirm = async (scheduledTime: string, selection: 'none' | 'draft' | 'custom', customImageUrl?: string) => {
     if (!schedulingPostId) return;
     setIsUpdating(true);
-    const res = await schedulePostAction(schedulingPostId, scheduledTime, customImageUrl);
+    const res = await schedulePostAction(schedulingPostId, scheduledTime, selection, customImageUrl);
     setIsUpdating(false);
     if (res.success) {
       setScheduleModalOpen(false);
-      alert('Post scheduled successfully!');
+      setActionStatus({ message: 'Post scheduled successfully!', type: 'success' });
     } else {
-      alert(res.error || 'Failed to schedule post');
+      setActionStatus({ message: res.error || 'Failed to schedule post', type: 'error' });
     }
   };
 
-  const handlePublish = async (platform: 'linkedin' | 'email', postId: string, customImageUrl?: string) => {
+  const handlePublish = async (
+    platform: 'linkedin' | 'email', 
+    postId: string, 
+    selection: 'none' | 'draft' | 'custom',
+    customImageUrl?: string
+  ) => {
     setPublishingInfo({ platform, postId });
     setInFlightPublishing(prev => [...prev, postId]);
     
-    const res = await publishNowAction(id as string, platform, postId, customImageUrl);
+    const res = await publishNowAction(id as string, platform, postId, selection, customImageUrl);
     setShowPublishModal(false);
 
     if (!res.success) {
-      alert(res.error);
+      setActionStatus({ message: res.error || 'Failed to publish', type: 'error' });
       setInFlightPublishing(prev => prev.filter(id => id !== postId));
+    } else {
+      setActionStatus({ message: `Successfully triggered publishing for ${platform}!`, type: 'success' });
     }
   };
 
@@ -1283,6 +1290,7 @@ export default function ProjectDetailPage() {
         onConfirm={handleScheduleConfirm}
         platform={schedulingPlatform}
         loading={isUpdating}
+        draftImageUrl={selectedDraft?.image_url || undefined}
       />
 
       <Modal 
@@ -1473,7 +1481,7 @@ export default function ProjectDetailPage() {
         <PublishConfirmModal
           isOpen={showPublishModal}
           onClose={() => setShowPublishModal(false)}
-          onConfirm={(url) => handlePublish(publishingInfo.platform, publishingInfo.postId, url)}
+          onConfirm={(selection, url) => handlePublish(publishingInfo.platform, publishingInfo.postId, selection, url)}
           onViewContent={() => {
             setShowPublishModal(false);
             const adaptedDraft = activeDrafts.find(d => d.selected);
@@ -1484,6 +1492,7 @@ export default function ProjectDetailPage() {
           platform={publishingInfo.platform}
           isOverview={viewState === 'overview'}
           loading={inFlightPublishing.includes(publishingInfo.postId)}
+          draftImageUrl={selectedDraft?.image_url || undefined}
         />
       )}
 

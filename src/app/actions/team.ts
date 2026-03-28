@@ -12,9 +12,11 @@ export async function inviteTeamMemberAction(email: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://fetemi-content-automation.vercel.app';
+
     // 1. Send Supabase Auth Invite using Admin Client
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://fetemi-content-automation.vercel.app'}/set-password`
+      redirectTo: `${appUrl}/set-password`
     });
 
     if (inviteError) throw inviteError;
@@ -42,22 +44,38 @@ export async function inviteTeamMemberAction(email: string) {
 
 export async function getTeamDataAction() {
   const supabase = await createClient();
+  const adminClient = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Unauthorized' };
 
   try {
-    const [profilesRes, invitesRes] = await Promise.all([
+    // 1. Fetch profiles, invites, and auth users
+    const [profilesRes, invitesRes, authRes] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: true }),
       supabase.from('team_invitations')
         .select('*')
         .eq('status', 'pending')
         .gte('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      adminClient.auth.admin.listUsers()
     ]);
+
+    const authUsers = authRes.data?.users || [];
+
+    // 2. Map profiles with auth data
+    const members = (profilesRes.data || []).map(profile => {
+      const authUser = authUsers.find(u => u.id === profile.id);
+      return {
+        ...profile,
+        email: authUser?.email,
+        confirmed: !!authUser?.email_confirmed_at,
+        last_sign_in: authUser?.last_sign_in_at
+      };
+    });
 
     return { 
       success: true, 
-      members: profilesRes.data || [], 
+      members, 
       invites: invitesRes.data || [] 
     };
   } catch (error) {

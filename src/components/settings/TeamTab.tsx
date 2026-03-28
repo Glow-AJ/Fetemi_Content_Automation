@@ -123,15 +123,21 @@ export function TeamTab() {
                         {member.full_name?.[0]?.toUpperCase() || member.email?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
-                        <p className="text-sm font-black text-zinc-900 leading-none mb-1.5">{member.full_name || 'Anonymous User'}</p>
+                        <p className="text-sm font-black text-zinc-900 leading-none mb-1.5">{member.full_name || 'Anonymous'}</p>
                         <p className="text-xs text-zinc-400 font-bold">{member.email}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 shadow-sm shadow-blue-50">
-                      <Shield size={10} strokeWidth={3} /> Manager
-                    </span>
+                    {member.confirmed ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 shadow-sm shadow-blue-50">
+                        <Shield size={10} strokeWidth={3} /> Manager
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-orange-50 text-orange-600 border border-orange-100 italic transition-all">
+                        <Clock size={10} strokeWidth={3} /> Pending Join
+                      </span>
+                    )}
                   </td>
                   <td className="px-8 py-5 text-xs text-zinc-400 font-bold hidden sm:table-cell">
                     {member.created_at ? new Date(member.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Active'}

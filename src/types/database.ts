@@ -94,6 +94,7 @@ export type Database = {
           updated_at: string | null
           url_type: string | null
           user_id: string
+          published_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -112,6 +113,7 @@ export type Database = {
           updated_at?: string | null
           url_type?: string | null
           user_id: string
+          published_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -130,6 +132,7 @@ export type Database = {
           updated_at?: string | null
           url_type?: string | null
           user_id?: string
+          published_at?: string | null
         }
         Relationships: []
       }
@@ -359,6 +362,8 @@ export type Database = {
           content: string | null
           created_at: string | null
           id: string
+          image_selection: "none" | "draft" | "custom" | null
+          custom_image_url: string | null
           job_id: string | null
           platform: Database["public"]["Enums"]["platform_type"]
           publish_at: string | null
@@ -373,6 +378,8 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           id?: string
+          image_selection?: "none" | "draft" | "custom" | null
+          custom_image_url?: string | null
           job_id?: string | null
           platform: Database["public"]["Enums"]["platform_type"]
           publish_at?: string | null
@@ -387,6 +394,8 @@ export type Database = {
           content?: string | null
           created_at?: string | null
           id?: string
+          image_selection?: "none" | "draft" | "custom" | null
+          custom_image_url?: string | null
           job_id?: string | null
           platform?: Database["public"]["Enums"]["platform_type"]
           publish_at?: string | null
