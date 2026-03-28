@@ -84,6 +84,7 @@ export default function ProjectDetailPage() {
   const [viewingRecipientsPostId, setViewingRecipientsPostId] = useState<string | null>(null);
   const [recipients, setRecipients] = useState<any[]>([]);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [showSEOModal, setShowSEOModal] = useState(false);
 
   const [viewState, setViewState] = useState<'overview' | 'editor'>('overview');
 
@@ -848,9 +849,33 @@ export default function ProjectDetailPage() {
                     </div>
 
                     {expandedSections.article && (
-                      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
-                        {/* Editor Sidebar (Anchored like overview) */}
-                        <aside className="lg:col-span-1 order-2 lg:order-1">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+                        {/* Editor Main Content - WIDER */}
+                        <div className="lg:col-span-9 order-1">
+                          <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
+                            {selectedDraft.image_url && (
+                              <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group border-b border-zinc-100">
+                                <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                              </div>
+                            )}
+                            <div className="flex-1 p-8 lg:p-16">
+                              {viewModes.article === 'view' ? (
+                                <div className="max-w-4xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
+                                  <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
+                                </div>
+                              ) : (
+                                <RichTextEditor 
+                                  content={contents.article} 
+                                  onChange={(c) => setContents(prev => ({ ...prev, article: c }))} 
+                                  editable={true}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Editor Sidebar - RIGHT ALIGNED & NARROWER */}
+                        <aside className="lg:col-span-3 order-2">
                           <div className="sticky top-12 space-y-6">
                              <Card className="border border-zinc-100 bg-zinc-50/50 p-6 rounded-3xl shadow-sm">
                                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
@@ -858,7 +883,7 @@ export default function ProjectDetailPage() {
                                     <div className="flex justify-between items-center pb-4 border-b border-zinc-200/50">
                                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Draft Status</span>
                                        <span className="text-[10px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded uppercase tracking-tighter">
-                                         Primary Draft
+                                          Primary Draft
                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center pb-4 border-b border-zinc-200/50">
@@ -872,33 +897,42 @@ export default function ProjectDetailPage() {
 
                                     <div className="space-y-3 pt-4">
                                        {!selectedDraft.selected ? (
-                                         <Button 
-                                           variant="primary" 
-                                           className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
-                                           onClick={() => handleSelectClick(selectedDraft as Draft, false)}
-                                           disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
-                                         >
-                                           {activeDrafts.some(d => d.selected) ? 'OTHER SELECTED' : 'SELECT DRAFT'}
-                                         </Button>
+                                          <Button 
+                                            variant="primary" 
+                                            className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
+                                            onClick={() => handleSelectClick(selectedDraft as Draft, false)}
+                                            disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
+                                          >
+                                            {activeDrafts.some(d => d.selected) ? 'OTHER SELECTED' : 'SELECT DRAFT'}
+                                          </Button>
                                        ) : (
-                                         <div className="bg-zinc-200 text-zinc-500 p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest border border-zinc-300">
-                                            ADAPTED
-                                         </div>
+                                          <div className="bg-zinc-200 text-zinc-500 p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest border border-zinc-300">
+                                              ADAPTED
+                                          </div>
                                        )}
 
                                        {viewModes.article === 'edit' ? (
-                                         <div className="grid grid-cols-2 gap-2 mt-4">
-                                            <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
-                                            <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
-                                         </div>
+                                          <div className="grid grid-cols-2 gap-2 mt-4">
+                                             <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
+                                             <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
+                                          </div>
                                        ) : (
-                                         <Button 
-                                           variant="outline" 
-                                           className="w-full h-10 text-red-500 border-red-100 hover:bg-red-50 font-black text-[10px] uppercase tracking-widest"
-                                           onClick={() => setShowDeleteConfirm(true)}
-                                         >
-                                            <Trash2 size={14} className="mr-2" /> Delete
-                                         </Button>
+                                          <div className="space-y-3">
+                                            <Button 
+                                              variant="outline" 
+                                              className="w-full h-10 bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
+                                              onClick={() => setShowSEOModal(true)}
+                                            >
+                                              <Search size={14} className="text-zinc-400" /> SEO Research
+                                            </Button>
+                                            <Button 
+                                              variant="outline" 
+                                              className="w-full h-10 text-red-500 border-red-100 hover:bg-red-50 font-black text-[10px] uppercase tracking-widest"
+                                              onClick={() => setShowDeleteConfirm(true)}
+                                            >
+                                              <Trash2 size={14} className="mr-2" /> Delete
+                                            </Button>
+                                          </div>
                                        )}
                                     </div>
                                  </div>
@@ -906,7 +940,7 @@ export default function ProjectDetailPage() {
 
                              {/* Revision Loop */}
                              <div className="p-6 bg-orange-50 border border-orange-100 rounded-3xl shadow-sm">
-                                <p className="text-[10px] font-black text-orange-900 uppercase tracking-widest mb-4">Revision History</p>
+                                <p className="text-[10px] font-black text-orange-900 uppercase tracking-widest mb-4">Revision Management</p>
                                 <Button 
                                   variant="outline" 
                                   className="w-full bg-white border-orange-200 text-orange-600 font-black h-12 text-[10px] uppercase tracking-widest"
@@ -914,45 +948,18 @@ export default function ProjectDetailPage() {
                                      setRevisionTargetId(selectedDraft.id);
                                      setShowRevisionModal(true);
                                   }}
-                                  disabled={(job.revision_count || 0) >= 3}
+                                  disabled={(job.revision_count || 0) >= 3 || !!selectedDraft.selected}
                                 >
-                                  {(job.revision_count || 0) >= 3 ? 'Limit Reached' : `Request Revision #${(job.revision_count || 0) + 1}`}
+                                  {(job.revision_count || 0) >= 3 ? 'Limit Reached' : selectedDraft.selected ? 'Draft Adapted' : `Request Revision #${(job.revision_count || 0) + 1}`}
                                 </Button>
+                                {selectedDraft.selected && (
+                                  <p className="text-[9px] text-orange-800 text-center font-bold uppercase mt-3 tracking-tighter opacity-60">
+                                    Revisions locked after adaptation
+                                  </p>
+                                )}
                              </div>
                           </div>
                         </aside>
-
-                        {/* Editor Main Content */}
-                        <div className="lg:col-span-3 order-1 lg:order-2">
-                          <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
-                            {selectedDraft.image_url && (
-                              <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group border-b border-zinc-100">
-                                <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                              </div>
-                            )}
-                            <div className="flex-1 p-8 lg:p-16">
-                              {viewModes.article === 'view' ? (
-                                <div className="max-w-3xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
-                                  <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
-                                </div>
-                              ) : (
-                                <RichTextEditor 
-                                  content={contents.article} 
-                                  onChange={(c) => setContents(prev => ({ ...prev, article: c }))} 
-                                  editable={true}
-                                />
-                              )}
-
-                              {/* SEO Research Brief integrated at the bottom of the draft */}
-                              <SEOBriefSection 
-                                seoBrief={seoBrief as any} 
-                                job={job as any}
-                                expanded={expandedSummary} 
-                                onToggle={() => setExpandedSummary(!expandedSummary)} 
-                              />
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -1305,6 +1312,82 @@ export default function ProjectDetailPage() {
         variant="danger"
         loading={isUpdating}
       />
+
+      {/* SEO Research Modal for Editor */}
+      <Modal
+        isOpen={showSEOModal}
+        onClose={() => setShowSEOModal(false)}
+        title="SEO Research Brief"
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-8">
+           <div className="flex items-center justify-between p-4 bg-orange-50 border border-orange-100 rounded-2xl">
+              <div>
+                 <p className="text-[10px] font-black text-orange-900 uppercase tracking-widest leading-none">Primary Keyword</p>
+                 <p className="text-sm font-black text-orange-600 mt-1">{seoBrief?.primary_keyword || 'Calculating...'}</p>
+              </div>
+              <div className="text-right">
+                 <p className="text-[10px] font-black text-orange-900 uppercase tracking-widest leading-none">Search Phrase</p>
+                 <p className="text-[11px] font-bold text-orange-800 italic mt-1 truncate max-w-xs">&quot;{job.search_phrase}&quot;</p>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                 <div>
+                    <div className="flex items-center gap-2 mb-3">
+                       <Target size={14} className="text-orange-500" />
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Target Audience</p>
+                    </div>
+                    <p className="text-sm text-zinc-700 font-medium leading-relaxed bg-zinc-50 p-4 rounded-xl border border-zinc-100">
+                       {seoBrief?.target_audience || 'General professionals'}
+                    </p>
+                 </div>
+                 <div>
+                    <div className="flex items-center gap-2 mb-3">
+                       <PenTool size={14} className="text-orange-500" />
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tone & Style</p>
+                    </div>
+                    <p className="text-sm text-zinc-700 font-medium leading-relaxed bg-zinc-50 p-4 rounded-xl border border-zinc-100">
+                       {seoBrief?.tone_style || 'Professional'}
+                    </p>
+                 </div>
+              </div>
+
+              <div className="space-y-6">
+                 <div>
+                    <div className="flex items-center gap-2 mb-3">
+                       <Hash size={14} className="text-orange-500" />
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Keywords</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                       {seoBrief?.short_tail_keywords?.map((kw: string, i: number) => (
+                          <span key={i} className="px-2 py-1 bg-zinc-100 text-[10px] font-bold text-zinc-600 rounded-lg border border-zinc-200">{kw}</span>
+                       ))}
+                       {seoBrief?.long_tail_keywords?.map((kw: string, i: number) => (
+                          <span key={`l-${i}`} className="px-2 py-1 bg-orange-50 text-[10px] font-bold text-orange-600 rounded-lg border border-orange-100">{kw}</span>
+                       ))}
+                    </div>
+                 </div>
+                 <div>
+                    <div className="flex items-center gap-2 mb-3">
+                       <ExternalLink size={14} className="text-orange-500" />
+                       <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Top Competitors</p>
+                    </div>
+                    <div className="space-y-2">
+                       {seoBrief?.competitor_urls?.map((url: string, i: number) => (
+                          <a key={i} href={url} target="_blank" rel="noreferrer" className="block text-xs font-bold text-zinc-500 hover:text-orange-600 transition-colors truncate underline">
+                             {url}
+                          </a>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+           </div>
+           
+           <Button variant="primary" className="w-full h-12 font-black uppercase text-xs tracking-widest shadow-lg shadow-orange-200" onClick={() => setShowSEOModal(false)}>Close Research</Button>
+        </div>
+      </Modal>
 
       {/* Publish Confirm Modal */}
       {publishingInfo && (

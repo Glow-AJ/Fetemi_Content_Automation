@@ -474,6 +474,8 @@ export type Database = {
           primary_keyword: string | null
           raw_dataforseo_response: Json | null
           short_tail_keywords: string[] | null
+          target_audience: string | null
+          tone_style: string | null
           updated_at: string | null
           user_id: string
         }
@@ -490,6 +492,8 @@ export type Database = {
           primary_keyword?: string | null
           raw_dataforseo_response?: Json | null
           short_tail_keywords?: string[] | null
+          target_audience?: string | null
+          tone_style?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -506,6 +510,8 @@ export type Database = {
           primary_keyword?: string | null
           raw_dataforseo_response?: Json | null
           short_tail_keywords?: string[] | null
+          target_audience?: string | null
+          tone_style?: string | null
           updated_at?: string | null
           user_id?: string
         }

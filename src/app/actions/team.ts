@@ -1,16 +1,19 @@
 'use server';
 
+import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function inviteTeamMemberAction(email: string) {
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
+  const supabase = await createClient(); // Still need this for inviter_id logic
+  
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // 1. Send Supabase Auth Invite
-    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
+    // 1. Send Supabase Auth Invite using Admin Client
+    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
     });
 
