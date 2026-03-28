@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/Button';
 import { 
   ArrowLeft, Check, Clock, Edit3, Eye, FileText, Globe, 
   Loader2, MessageSquare, RefreshCw, Send, Trash2, Zap,
-  AlertCircle, Image as ImageIcon, Calendar, Mail, Linkedin, Twitter
+  AlertCircle, Image as ImageIcon, Calendar, Mail, Linkedin, Twitter,
+  ChevronDown, ChevronUp, Search, Target, PenTool, Info, ExternalLink, Hash
 } from 'lucide-react';
 import { PublishConfirmModal } from '@/components/content/PublishConfirmModal';
 import { SelectConfirmationModal } from '@/components/content/SelectConfirmationModal';
 import { ScheduleModal } from '@/components/content/ScheduleModal';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import ReactMarkdown from 'react-markdown';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -34,14 +36,14 @@ import type { Job, Draft, PlatformPost, SEOBrief } from '@/types/database';
 
 
 const phases = [
-  { key: 'submitted', label: 'Submitted' },
-  { key: 'researching', label: 'Researching' },
-  { key: 'seo_research', label: 'SEO Research' },
+  { key: 'submitted', label: 'Intake' },
+  { key: 'researching', label: 'SEO' },
+  { key: 'seo_research', label: 'Briefing' },
   { key: 'drafting', label: 'Drafting' },
-  { key: 'awaiting_review', label: 'Awaiting Review' },
-  { key: 'adapting', label: 'Adaptation' },
-  { key: 'ready_to_publish', label: 'Ready' },
-  { key: 'published', label: 'Published' },
+  { key: 'awaiting_review', label: 'Review' },
+  { key: 'adapting', label: 'Social' },
+  { key: 'ready_to_publish', label: 'Schedule' },
+  { key: 'published', label: 'Send' },
 ];
 
 
@@ -62,7 +64,11 @@ export default function ProjectDetailPage() {
   
   // UI States
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Confirmation Modal States
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [confirmMarkAsPosted, setConfirmMarkAsPosted] = useState<{ id: string } | null>(null);
+  const [confirmCancelSchedule, setConfirmCancelSchedule] = useState<{ id: string } | null>(null);
+  const [expandedSummary, setExpandedSummary] = useState(false);
   const [isConfirmingSelect, setIsConfirmingSelect] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<Draft | null>(null);
   const [revisionNote, setRevisionNote] = useState('');
@@ -106,6 +112,15 @@ export default function ProjectDetailPage() {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [schedulingPostId, setSchedulingPostId] = useState<string | null>(null);
   const [schedulingPlatform, setSchedulingPlatform] = useState('');
+  const [actionStatus, setActionStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Clear action status after 5s
+  useEffect(() => {
+    if (actionStatus) {
+      const timer = setTimeout(() => setActionStatus(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionStatus]);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -209,7 +224,8 @@ export default function ProjectDetailPage() {
     setIsUpdating(true);
     const res = await selectDraftAction(job.id, selectedDraft.id);
     setIsUpdating(false);
-    if (!res.success) alert(res.error || 'Failed to select draft');
+    if (!res.success) setActionStatus({ message: res.error || 'Failed to select draft', type: 'error' });
+    else setActionStatus({ message: 'Draft selected successfully!', type: 'success' });
   };
 
   const handleFetchRecipients = async (postId: string) => {
@@ -219,7 +235,7 @@ export default function ProjectDetailPage() {
       setShowRecipientsModal(true);
       const res = await getNewsletterRecipientsAction(postId);
       if (res.success) setRecipients(res.recipients || []);
-      else alert(res.error || 'Failed to fetch recipients');
+      else setActionStatus({ message: res.error || 'Failed to fetch recipients', type: 'error' });
     } catch (err) {
       console.error('Recipients fetch error:', err);
     } finally {
@@ -303,28 +319,32 @@ export default function ProjectDetailPage() {
     setIsUpdating(true);
     const res = await retryIntakeAction(id as string);
     setIsUpdating(false);
-    if (!res.success) alert(res.error || 'Failed to retry intake');
-    else alert('Intake retry triggered!');
+    if (!res.success) setActionStatus({ message: res.error || 'Failed to retry intake', type: 'error' });
+    else setActionStatus({ message: 'Intake retry triggered!', type: 'success' });
   };
 
   const handleDeleteProject = async () => {
-    setIsDeleting(true);
+    setIsUpdating(true);
     const res = await deleteJobAction(id as string);
-    setIsDeleting(false);
+    setIsUpdating(false);
     if (res.success) router.push('/projects');
     else {
-      alert(res.error || 'Failed to delete project');
-      setShowDeleteModal(false);
+      setActionStatus({ message: res.error || 'Failed to delete project', type: 'error' });
+      setShowDeleteConfirm(false);
     }
   };
 
 
 
   const handleMarkAsPosted = async (postId: string) => {
-    if (!window.confirm('Are you sure you want to mark this as posted? This will stop any further automation for this platform.')) return;
+    setIsUpdating(true);
     const res = await markAsPostedAction(postId);
-    if (!res.success) alert(res.error || 'Failed to update status');
-    else alert('Success! Post marked as published.');
+    setIsUpdating(false);
+    if (!res.success) setActionStatus({ message: res.error || 'Failed to update status', type: 'error' });
+    else {
+      setConfirmMarkAsPosted(null);
+      setActionStatus({ message: 'Success! Post marked as published.', type: 'success' });
+    }
   };
 
   if (loading || !job) {
@@ -356,8 +376,9 @@ export default function ProjectDetailPage() {
       if (res.success) {
         setShowRevisionModal(false);
         setRevisionNote('');
+        setActionStatus({ message: 'AI Revision triggered successfully!', type: 'success' });
       } else {
-        alert(res.error || 'Failed to request revision');
+        setActionStatus({ message: res.error || 'Failed to request revision', type: 'error' });
       }
     } catch (err) {
       console.error('Revision error:', err);
@@ -367,12 +388,14 @@ export default function ProjectDetailPage() {
   };
 
   const handleCancelSchedule = async (postId: string) => {
-    if (!confirm('Are you sure you want to cancel this scheduled post?')) return;
-    
     try {
       setIsUpdating(true);
       const res = await cancelScheduleAction(postId);
-      if (!res.success) alert(res.error || 'Failed to cancel schedule');
+      if (!res.success) setActionStatus({ message: res.error || 'Failed to cancel schedule', type: 'error' });
+      else {
+        setConfirmCancelSchedule(null);
+        setActionStatus({ message: 'Schedule cancelled successfully.', type: 'success' });
+      }
     } catch (err) {
       console.error('Cancel schedule error:', err);
     } finally {
@@ -410,6 +433,16 @@ export default function ProjectDetailPage() {
           </span>
         </div>
       </div>
+
+      {/* Action Status Banner */}
+      {actionStatus && (
+        <div className={`p-4 rounded-2xl border flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 ${
+          actionStatus.type === 'success' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'
+        }`}>
+          <AlertCircle size={18} />
+          <p className="text-sm font-bold">{actionStatus.message}</p>
+        </div>
+      )}
 
       <div>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-2">
@@ -451,11 +484,11 @@ export default function ProjectDetailPage() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => setShowDeleteModal(true)}
-              disabled={isDeleting}
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isUpdating}
               className="text-red-600 border-red-200 hover:bg-red-50 h-10 px-4 font-bold"
             >
-              <Trash2 size={14} className={isDeleting ? 'mr-2 animate-spin' : 'mr-2'} strokeWidth={3} /> 
+              <Trash2 size={14} className={isUpdating ? 'mr-2 animate-spin' : 'mr-2'} strokeWidth={3} /> 
               Delete
             </Button>
           </div>
@@ -497,30 +530,15 @@ export default function ProjectDetailPage() {
                 })}
               </div>
               
-              {/* SEO Brief Summary Sidebar */}
-              {seoBrief && (
-                <div className="mt-12 pt-8 border-t border-zinc-100 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                  <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-4">SEO Research Summary</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-1">Primary Keyword</p>
-                      <p className="text-sm font-bold text-zinc-900">{seoBrief.primary_keyword}</p>
-                    </div>
-                    {seoBrief.short_tail_keywords && seoBrief.short_tail_keywords.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2">Short-tail</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {seoBrief.short_tail_keywords.map((kw, i) => (
-                            <span key={i} className="text-[9px] font-bold px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200 uppercase tracking-tighter">
-                              {kw}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+              {/* Sidebar Footer Info */}
+              <div className="mt-12 pt-8 border-t border-zinc-100">
+                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Internal Notes</p>
+                  <p className="text-[11px] font-medium text-zinc-500 leading-relaxed italic">
+                    AI generation is optimized for {job.input_type} content. 3 drafts are provided per revision round.
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
           </aside>
         )}
@@ -630,6 +648,14 @@ export default function ProjectDetailPage() {
                   </Card>
                 )}
                 </div>
+
+                {/* Expanded SEO Research Section */}
+                <SEOBriefSection 
+                  seoBrief={seoBrief as any} 
+                  job={job as any}
+                  expanded={expandedSummary} 
+                  onToggle={() => setExpandedSummary(!expandedSummary)} 
+                />
               </section>
 
               {/* 2. Platform Adaptations (Visible after draft selection) */}
@@ -676,12 +702,20 @@ export default function ProjectDetailPage() {
                               </div>
                             </div>
                             {post && (
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border border-current/10 ${
-                                post.status === 'published' ? 'bg-green-100 text-green-600' : 
-                                post.status === 'scheduled' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                              }`}>
-                                {post.status}
-                              </span>
+                              <div className="flex flex-col gap-1 items-end">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border border-current/10 ${
+                                  post.status === 'published' ? 'bg-green-100 text-green-600' : 
+                                  post.status === 'scheduled' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                                }`}>
+                                  {post.status}
+                                </span>
+                                {post.status === 'scheduled' && post.publish_at && (
+                                  <div className="flex items-center gap-1 text-[9px] font-bold text-blue-600 uppercase tracking-tighter">
+                                    <Clock size={10} />
+                                    {new Date(post.publish_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </div>
 
@@ -706,7 +740,7 @@ export default function ProjectDetailPage() {
                                   size="sm" 
                                   className="w-full h-8 text-[10px] font-black uppercase bg-zinc-900 group-hover:bg-black"
                                   disabled={post.status === 'published'}
-                                  onClick={() => handleMarkAsPosted(post.id)}
+                                  onClick={() => setConfirmMarkAsPosted({ id: post.id })}
                                 >
                                   {post.status === 'published' ? 'Marked as Posted' : 'Mark as Posted'}
                                 </Button>
@@ -717,7 +751,7 @@ export default function ProjectDetailPage() {
                                       variant="outline" 
                                       size="sm" 
                                       className="h-8 text-[9px] font-black uppercase tracking-tighter border-red-100 text-red-500 hover:bg-red-50"
-                                      onClick={() => handleCancelSchedule(post.id)}
+                                      onClick={() => setConfirmCancelSchedule({ id: post.id })}
                                     >
                                       Cancel
                                     </Button>
@@ -752,13 +786,13 @@ export default function ProjectDetailPage() {
                                       size="sm" 
                                       className="h-8 text-[9px] font-black uppercase tracking-widest"
                                       loading={inFlightPublishing.includes(post.id)}
-                                      disabled={post.status === 'published' || inFlightPublishing.includes(post.id)}
+                                      disabled={post.status === 'published' || post.status === 'scheduled' || inFlightPublishing.includes(post.id)}
                                       onClick={() => {
                                         setPublishingInfo({ platform: platform as 'linkedin' | 'email', postId: post.id });
                                         setShowPublishModal(true);
                                       }}
                                     >
-                                      {post.status === 'published' ? 'Sent' : 'Publish'}
+                                      {post.status === 'published' ? 'Sent' : post.status === 'scheduled' ? 'Scheduled' : 'Publish'}
                                     </Button>
                                   )}
                                 </div>
@@ -814,15 +848,89 @@ export default function ProjectDetailPage() {
                     </div>
 
                     {expandedSections.article && (
-                      <div className="grid grid-cols-1 xl:grid-cols-4 gap-12 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div className="xl:col-span-3">
-                          <div className="bg-white border-2 border-zinc-100 rounded-[3rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
+                      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+                        {/* Editor Sidebar (Anchored like overview) */}
+                        <aside className="lg:col-span-1 order-2 lg:order-1">
+                          <div className="sticky top-12 space-y-6">
+                             <Card className="border border-zinc-100 bg-zinc-50/50 p-6 rounded-3xl shadow-sm">
+                                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
+                                 <div className="space-y-6">
+                                    <div className="flex justify-between items-center pb-4 border-b border-zinc-200/50">
+                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Draft Status</span>
+                                       <span className="text-[10px] font-black text-orange-600 bg-orange-100 px-2 py-1 rounded uppercase tracking-tighter">
+                                         Primary Draft
+                                       </span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-4 border-b border-zinc-200/50">
+                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Revision</span>
+                                       <span className="text-sm font-black text-zinc-900">#{selectedDraft.revision_round || 0}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-4 border-b border-zinc-200/50">
+                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Word Count</span>
+                                       <span className="text-sm font-black text-zinc-900">{selectedDraft.word_count || 0}</span>
+                                    </div>
+
+                                    <div className="space-y-3 pt-4">
+                                       {!selectedDraft.selected ? (
+                                         <Button 
+                                           variant="primary" 
+                                           className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
+                                           onClick={() => handleSelectClick(selectedDraft as Draft, false)}
+                                           disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
+                                         >
+                                           {activeDrafts.some(d => d.selected) ? 'OTHER SELECTED' : 'SELECT DRAFT'}
+                                         </Button>
+                                       ) : (
+                                         <div className="bg-zinc-200 text-zinc-500 p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest border border-zinc-300">
+                                            ADAPTED
+                                         </div>
+                                       )}
+
+                                       {viewModes.article === 'edit' ? (
+                                         <div className="grid grid-cols-2 gap-2 mt-4">
+                                            <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
+                                            <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
+                                         </div>
+                                       ) : (
+                                         <Button 
+                                           variant="outline" 
+                                           className="w-full h-10 text-red-500 border-red-100 hover:bg-red-50 font-black text-[10px] uppercase tracking-widest"
+                                           onClick={() => setShowDeleteConfirm(true)}
+                                         >
+                                            <Trash2 size={14} className="mr-2" /> Delete
+                                         </Button>
+                                       )}
+                                    </div>
+                                 </div>
+                             </Card>
+
+                             {/* Revision Loop */}
+                             <div className="p-6 bg-orange-50 border border-orange-100 rounded-3xl shadow-sm">
+                                <p className="text-[10px] font-black text-orange-900 uppercase tracking-widest mb-4">Revision History</p>
+                                <Button 
+                                  variant="outline" 
+                                  className="w-full bg-white border-orange-200 text-orange-600 font-black h-12 text-[10px] uppercase tracking-widest"
+                                  onClick={() => {
+                                     setRevisionTargetId(selectedDraft.id);
+                                     setShowRevisionModal(true);
+                                  }}
+                                  disabled={(job.revision_count || 0) >= 3}
+                                >
+                                  {(job.revision_count || 0) >= 3 ? 'Limit Reached' : `Request Revision #${(job.revision_count || 0) + 1}`}
+                                </Button>
+                             </div>
+                          </div>
+                        </aside>
+
+                        {/* Editor Main Content */}
+                        <div className="lg:col-span-3 order-1 lg:order-2">
+                          <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
                             {selectedDraft.image_url && (
-                              <div className="w-full h-[450px] bg-zinc-100 overflow-hidden relative group">
+                              <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group border-b border-zinc-100">
                                 <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                               </div>
                             )}
-                            <div className="flex-1 p-10 lg:p-20">
+                            <div className="flex-1 p-8 lg:p-16">
                               {viewModes.article === 'view' ? (
                                 <div className="max-w-3xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
                                   <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
@@ -834,67 +942,15 @@ export default function ProjectDetailPage() {
                                   editable={true}
                                 />
                               )}
+
+                              {/* SEO Research Brief integrated at the bottom of the draft */}
+                              <SEOBriefSection 
+                                seoBrief={seoBrief as any} 
+                                job={job as any}
+                                expanded={expandedSummary} 
+                                onToggle={() => setExpandedSummary(!expandedSummary)} 
+                              />
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="xl:col-span-1">
-                          <div className="sticky top-12 space-y-6">
-                             <Card className="border-none bg-zinc-50 p-8 rounded-3xl">
-                                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
-                                 <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Metric</span>
-                                       <span className="text-base font-black text-zinc-900">
-                                         Primary Draft
-                                       </span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-tighter">Word Count</span>
-                                       <span className="text-base font-black text-zinc-900">
-                                         {selectedDraft.word_count || 0}
-                                       </span>
-                                    </div>
-                                 </div>
-                                <div className="mt-8 pt-8 border-t border-zinc-200/50 space-y-3">
-                                   {!selectedDraft.selected ? (
-                                     <Button 
-                                       variant="primary" 
-                                       className="w-full h-12 font-black text-xs uppercase tracking-widest shadow-lg"
-                                       onClick={() => handleSelectClick(selectedDraft as Draft, false)}
-                                       disabled={job.status !== 'awaiting_review' || activeDrafts.some(d => d.selected)}
-                                     >
-                                       {activeDrafts.some(d => d.selected) ? 'ANOTHER DRAFT SELECTED' : 'SELECT FOR ADAPTATION'}
-                                     </Button>
-                                   ) : (
-                                     <div className="bg-zinc-200 text-zinc-500 p-4 rounded-xl text-center text-[10px] font-black uppercase tracking-widest border border-zinc-300">
-                                        ALREADY ADAPTED
-                                     </div>
-                                   )}
-
-                                   {viewModes.article === 'edit' && (
-                                     <div className="grid grid-cols-2 gap-2 mt-4">
-                                        <Button variant="ghost" className="text-[10px] font-black" onClick={() => setViewMode('article', 'view')}>DISCARD</Button>
-                                        <Button variant="outline" className="text-[10px] font-black border-zinc-200" onClick={() => saveContent('article', selectedDraft.id)}>SAVE</Button>
-                                     </div>
-                                   )}
-                                </div>
-                             </Card>
-
-                             <div className="p-8 bg-orange-50 border border-orange-100 rounded-3xl">
-                                <p className="text-xs font-black text-orange-900 uppercase tracking-widest mb-4">Revision Loop</p>
-                                <Button 
-                                  variant="outline" 
-                                  className="w-full bg-white border-orange-200 text-orange-600 font-black h-12 text-[10px] uppercase tracking-widest"
-                                  onClick={() => {
-                                     setRevisionTargetId(selectedDraft.id);
-                                     setShowRevisionModal(true);
-                                  }}
-                                  disabled={(job.revision_count || 0) >= 3}
-                                >
-                                  Start Revision #{(job.revision_count || 0) + 1}
-                                </Button>
-                             </div>
                           </div>
                         </div>
                       </div>
@@ -1004,7 +1060,7 @@ export default function ProjectDetailPage() {
                                                     size="sm" 
                                                     className="w-full h-10 text-[10px] font-black uppercase bg-zinc-900 hover:bg-black shadow-lg"
                                                     disabled={post.status === 'published'}
-                                                    onClick={() => handleMarkAsPosted(post.id)}
+                                                    onClick={() => setConfirmMarkAsPosted({ id: post.id })}
                                                   >
                                                     {post.status === 'published' ? 'Posted on X' : 'Mark as Posted'}
                                                   </Button>
@@ -1035,11 +1091,7 @@ export default function ProjectDetailPage() {
                                                           variant="ghost" 
                                                           size="sm" 
                                                           className="h-10 text-[9px] font-black uppercase text-red-500 hover:bg-red-50"
-                                                          onClick={async () => {
-                                                            if (window.confirm('Cancel this scheduled post?')) {
-                                                              await cancelScheduleAction(post.id);
-                                                            }
-                                                          }}
+                                                          onClick={() => setConfirmCancelSchedule({ id: post.id })}
                                                         >
                                                           Cancel
                                                         </Button>
@@ -1209,6 +1261,7 @@ export default function ProjectDetailPage() {
                  <a 
                    href={job.source_url} 
                    target="_blank" 
+                   rel="noopener noreferrer"
                    className="text-sm font-bold text-orange-600 hover:text-orange-700 underline truncate block"
                  >
                     {job.source_url}
@@ -1218,33 +1271,40 @@ export default function ProjectDetailPage() {
            <Button className="w-full mt-4 font-bold" onClick={() => setShowInputModal(false)}>Close</Button>
         </div>
       </Modal>
-      <Modal 
-        isOpen={showDeleteModal} 
-        onClose={() => setShowDeleteModal(false)}
+
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteProject}
         title="Delete Project?"
-      >
-        <div className="space-y-6">
-           <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex gap-4">
-              <AlertCircle className="text-red-500 shrink-0" size={20} />
-              <p className="text-xs text-red-800 leading-relaxed font-medium">
-                This will permanently remove the project, all drafts, and platform adaptations. This action cannot be undone.
-              </p>
-           </div>
-           
-           <div className="flex gap-3">
-              <Button variant="ghost" className="flex-1 font-bold" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-              <Button 
-                variant="primary" 
-                className="flex-1 font-black uppercase tracking-widest text-xs h-12 bg-red-600 hover:bg-red-700 !shadow-red-200"
-                onClick={handleDeleteProject}
-                disabled={isUpdating}
-                loading={isUpdating}
-              >
-                Delete permanently
-              </Button>
-           </div>
-        </div>
-      </Modal>
+        message="This will permanently remove the project, all drafts, and platform adaptations. This action cannot be undone."
+        confirmText="Delete permanently"
+        variant="danger"
+        loading={isUpdating}
+      />
+
+      <ConfirmationModal
+        isOpen={!!confirmMarkAsPosted}
+        onClose={() => setConfirmMarkAsPosted(null)}
+        onConfirm={() => confirmMarkAsPosted && handleMarkAsPosted(confirmMarkAsPosted.id)}
+        title="Mark as Posted?"
+        message="This will stop any further automation for this platform. Are you sure you want to mark this as published manually?"
+        confirmText="Mark as Published"
+        variant="primary"
+        loading={isUpdating}
+      />
+
+      <ConfirmationModal
+        isOpen={!!confirmCancelSchedule}
+        onClose={() => setConfirmCancelSchedule(null)}
+        onConfirm={() => confirmCancelSchedule && handleCancelSchedule(confirmCancelSchedule.id)}
+        title="Cancel Schedule?"
+        message="This will remove the scheduled publication time. You can schedule it again or publish immediately later."
+        confirmText="Cancel Schedule"
+        variant="danger"
+        loading={isUpdating}
+      />
 
       {/* Publish Confirm Modal */}
       {publishingInfo && (
@@ -1264,6 +1324,7 @@ export default function ProjectDetailPage() {
           loading={inFlightPublishing.includes(publishingInfo.postId)}
         />
       )}
+
       {/* Newsletter Recipients Modal */}
       <Modal
         isOpen={showRecipientsModal}
@@ -1317,6 +1378,120 @@ export default function ProjectDetailPage() {
           <Button className="w-full font-bold" onClick={() => setShowRecipientsModal(false)}>Close Report</Button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// Local Component for SEO Brief Section
+function SEOBriefSection({ seoBrief, job, expanded, onToggle }: { seoBrief: any, job: any, expanded: boolean, onToggle: () => void }) {
+  if (!seoBrief) return null;
+
+  return (
+    <div className="mt-8 border-2 border-zinc-100 rounded-3xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-all group">
+      <button 
+        onClick={onToggle}
+        className="w-full p-6 flex items-center justify-between hover:bg-zinc-50 transition-colors"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+            <Search size={20} />
+          </div>
+          <div className="text-left">
+            <h4 className="text-sm font-black text-zinc-900 uppercase tracking-widest">SEO Research Brief</h4>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter mt-1">
+              Primary: <span className="text-zinc-600">{seoBrief.primary_keyword}</span>
+            </p>
+          </div>
+        </div>
+        <div className={`p-2 rounded-lg bg-zinc-100 text-zinc-400 group-hover:text-orange-600 transition-all ${expanded ? 'rotate-180' : ''}`}>
+          <ChevronDown size={16} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="p-8 pt-2 border-t border-zinc-50 animate-in slide-in-from-top-4 duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Target size={14} className="text-orange-500" />
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Target Audience</p>
+                </div>
+                <p className="text-sm text-zinc-700 font-medium leading-relaxed pl-6">
+                  {seoBrief.target_audience || 'General industry professionals and decision makers.'}
+                </p>
+              </div>
+              
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <PenTool size={14} className="text-orange-500" />
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tone & Style</p>
+                </div>
+                <p className="text-sm text-zinc-700 font-medium leading-relaxed pl-6">
+                  {seoBrief.tone_style || 'Professional, authoritative, yet accessible and engaging.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Hash size={14} className="text-orange-500" />
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Secondary Keywords</p>
+                </div>
+                <div className="flex flex-wrap gap-2 pl-6">
+                  {seoBrief.short_tail_keywords?.map((kw: string, i: number) => (
+                    <span key={i} className="px-2 py-1 bg-zinc-100 text-[10px] font-bold text-zinc-600 rounded-lg border border-zinc-200">
+                      {kw}
+                    </span>
+                  ))}
+                  {seoBrief.long_tail_keywords?.map((kw: string, i: number) => (
+                    <span key={`l-${i}`} className="px-2 py-1 bg-orange-50 text-[10px] font-bold text-orange-600 rounded-lg border border-orange-100">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ExternalLink size={14} className="text-orange-500" />
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Top Competitors</p>
+              </div>
+              <div className="space-y-2 pl-6">
+                {(seoBrief.competitor_urls || []).map((link: string, i: number) => (
+                  <a 
+                    key={i} 
+                    href={link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-orange-600 transition-colors truncate group/link"
+                  >
+                    <div className="w-1 h-1 rounded-full bg-zinc-300 group-hover/link:bg-orange-500" />
+                    {new URL(link).hostname.replace('www.', '')}
+                  </a>
+                ))}
+                {(!seoBrief.competitor_urls || seoBrief.competitor_urls.length === 0) && (
+                  <p className="text-xs text-zinc-400 italic">No competitor links stored.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-zinc-50">
+            <div className="flex items-center gap-2 mb-4">
+              <Info size={14} className="text-orange-500" />
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Search Phrase Context</p>
+            </div>
+            <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100">
+              <p className="text-sm text-zinc-600 font-medium italic">
+                "{job.search_phrase || 'Automated SEO research based on initial intake data.'}"
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

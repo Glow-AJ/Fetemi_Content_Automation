@@ -222,7 +222,10 @@ export async function getNewsletterRecipientsAction(postId: string) {
         status,
         error,
         sent_at,
-        subscriber_id
+        subscriber_id,
+        subscribers (
+          email
+        )
       `)
       .eq('post_id', postId)
       .order('sent_at', { ascending: false });

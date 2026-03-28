@@ -28,6 +28,7 @@ export function ScheduleModal({
 
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -132,42 +133,68 @@ export function ScheduleModal({
           </div>
         </div>
 
-        {/* Custom Image Upload Section */}
+        {/* Custom Image Selection Section */}
         <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 border-dashed">
-          <div className="flex items-center justify-between mb-3">
-             <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Custom Graphic (Optional)</label>
-             <span className="text-[9px] font-bold text-zinc-400">MAX 5MB</span>
-          </div>
-
-          {previewUrl ? (
-            <div className="relative rounded-xl overflow-hidden aspect-video bg-zinc-200 border border-zinc-200 group">
-              <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+          {!showUpload ? (
+            <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-zinc-100 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Globe size={14} className="text-zinc-400" />
+                <p className="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Post Graphic</p>
+              </div>
               <button 
-                onClick={handleClearFile}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-all"
+                onClick={() => setShowUpload(true)}
+                className="text-[9px] font-black text-orange-600 hover:text-orange-700 uppercase tracking-widest px-3 py-1.5 bg-orange-50 hover:bg-orange-100 rounded-lg transition-all"
               >
-                <X size={14} />
+                Use Custom
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full py-6 rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2 hover:border-orange-500/50 hover:bg-orange-50/30 transition-all group"
-            >
-              <div className="p-2 rounded-full bg-white text-zinc-400 group-hover:text-orange-500 shadow-sm transition-all">
-                 <Upload size={16} />
+            <div className="animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between mb-3">
+                 <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Custom Graphic</label>
+                 <button 
+                  onClick={() => {
+                    setShowUpload(false);
+                    handleClearFile();
+                  }}
+                  className="text-[9px] font-black text-zinc-400 hover:text-zinc-600 uppercase tracking-widest"
+                 >
+                   Back to System
+                 </button>
               </div>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Upload Image</p>
-            </button>
-          )}
 
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
+              {previewUrl ? (
+                <div className="relative rounded-xl overflow-hidden aspect-video bg-zinc-200 border border-zinc-200 group">
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <button 
+                    onClick={handleClearFile}
+                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-all"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-6 rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2 hover:border-orange-500/50 hover:bg-orange-50/30 transition-all group"
+                >
+                  <div className="p-2 rounded-full bg-white text-zinc-400 group-hover:text-orange-500 shadow-sm transition-all">
+                     <Upload size={16} />
+                  </div>
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Click to Upload Image</p>
+                  <p className="text-[9px] font-bold text-zinc-400">MAX 5MB</p>
+                </button>
+              )}
 
-          {uploadError && (
-             <div className="mt-3 flex items-center gap-2 text-red-600">
-                <AlertCircle size={14} />
-                <p className="text-[10px] font-bold uppercase tracking-tight">{uploadError}</p>
-             </div>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
+
+              {uploadError && (
+                 <div className="mt-3 flex items-center gap-2 text-red-600">
+                    <AlertCircle size={14} />
+                    <p className="text-[10px] font-bold uppercase tracking-tight">{uploadError}</p>
+                 </div>
+              )}
+            </div>
           )}
         </div>
 
