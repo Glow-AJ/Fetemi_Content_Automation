@@ -215,11 +215,11 @@ export function TeamTab() {
             )}
 
             <div className="flex gap-4 pt-4">
-               <Button variant="ghost" className="flex-1 h-12 font-black uppercase tracking-widest text-xs" onClick={() => setShowInviteModal(false)}>Cancel</Button>
-               <Button variant="primary" loading={isInviting} className="flex-1 h-12 font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-100" type="submit">Send Invite</Button>
+              <Button variant="ghost" className="flex-1 h-12 font-black uppercase tracking-widest text-xs" onClick={() => setShowInviteModal(false)}>Cancel</Button>
+              <Button variant="primary" loading={isInviting} className="flex-1 h-12 font-black uppercase tracking-widest text-xs shadow-lg shadow-orange-100" type="submit">Send Invite</Button>
             </div>
           </form>
-        ) : null}
+        )}
       </Modal>
     </div>
   );
