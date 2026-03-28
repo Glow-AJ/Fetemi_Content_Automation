@@ -851,16 +851,16 @@ export default function ProjectDetailPage() {
                     {expandedSections.article && (
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
                         {/* Editor Main Content - WIDER */}
-                        <div className="lg:col-span-9 order-1">
+                        <div className="lg:col-span-10 order-1">
                           <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
                             {selectedDraft.image_url && (
                               <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group border-b border-zinc-100">
                                 <img src={selectedDraft.image_url} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                               </div>
                             )}
-                            <div className="flex-1 p-8 lg:p-16">
+                            <div className="flex-1 p-8 lg:p-10">
                               {viewModes.article === 'view' ? (
-                                <div className="max-w-4xl mx-auto prose prose-zinc prose-lg selection:bg-orange-100">
+                                <div className="max-w-none prose prose-zinc prose-lg selection:bg-orange-100">
                                   <ReactMarkdown>{contents.article || selectedDraft.content || ''}</ReactMarkdown>
                                 </div>
                               ) : (
@@ -875,7 +875,7 @@ export default function ProjectDetailPage() {
                         </div>
 
                         {/* Editor Sidebar - RIGHT ALIGNED & NARROWER */}
-                        <aside className="lg:col-span-3 order-2">
+                        <aside className="lg:col-span-2 order-2">
                           <div className="sticky top-12 space-y-6">
                              <Card className="border border-zinc-100 bg-zinc-50/50 p-6 rounded-3xl shadow-sm">
                                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>

@@ -14,7 +14,7 @@ export async function inviteTeamMemberAction(email: string) {
 
     // 1. Send Supabase Auth Invite using Admin Client
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://fetemi-content-automation.vercel.app'}/set-password`
     });
 
     if (inviteError) throw inviteError;

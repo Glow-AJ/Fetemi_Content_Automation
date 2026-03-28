@@ -18,7 +18,7 @@ import {
 import { createJobAction, checkDuplicateAction } from '@/app/actions/content';
 import type { UrlType } from '@/types/database';
 
-// ─── Structured Error Type ──────────────────────────────────────
+// --- Structured Error Type --------------------------------------
 
 interface StructuredError {
   what: string;
@@ -26,7 +26,7 @@ interface StructuredError {
   nextStep: string;
 }
 
-// ─── Page Component ─────────────────────────────────────────────
+// --- Page Component ---------------------------------------------
 
 export default function NewContentPage() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function NewContentPage() {
     return { type: null, rejected: false, rejectReason: null };
   }, [url, mode]);
 
-  // ─── Form Reset on Mode Switch ─────────────────────────────
+  // --- Form Reset on Mode Switch -----------------------------
 
   const switchMode = (newMode: 'idea' | 'url') => {
     setMode(newMode);
@@ -60,7 +60,7 @@ export default function NewContentPage() {
     setSimpleError(null);
   };
 
-  // ─── Submit Handler ─────────────────────────────────────────
+  // --- Submit Handler -----------------------------------------
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +72,7 @@ export default function NewContentPage() {
       return;
     }
 
-    // ── Validation ──
+    // -- Validation --
     if (mode === 'idea') {
       const trimmedIdea = idea.trim();
       if (trimmedIdea.length < 20) {
@@ -140,7 +140,7 @@ export default function NewContentPage() {
         return;
       }
 
-      // ── Success → Navigate to project detail page ──
+      // -- Success -> Navigate to project detail page --
       router.push(`/projects/${result.jobId}`);
     } catch (err) {
       console.error('[NewContent] Submit error:', err);
@@ -153,7 +153,7 @@ export default function NewContentPage() {
     }
   };
 
-  // ─── Render ─────────────────────────────────────────────────
+  // --- Render -------------------------------------------------
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
