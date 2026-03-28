@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Search, Filter, FileText, Link2, ArrowRight, Check, X, Clock, ChevronLeft, ChevronRight, Loader2, Trash2 } from 'lucide-react';
@@ -29,6 +30,7 @@ function PlatformIcon({ status }: { status: string | null | undefined }) {
 }
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -137,30 +139,24 @@ export default function ProjectsPage() {
             </thead>
             <tbody>
               {filtered.map((project) => (
-                <tr key={project.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer group">
+                <tr 
+                  key={project.id} 
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                  className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-bg-subtle)] transition-colors cursor-pointer group"
+                >
                   <td className="px-6 py-4">
-                    <Link href={`/projects/${project.id}`} className="flex items-center gap-3">
+                    <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-subtle)] flex items-center justify-center text-[var(--color-text-muted)] group-hover:bg-[var(--color-primary)] group-hover:text-white transition-colors shrink-0">
                         {project.input_type === 'url' ? <Link2 size={14} /> : <FileText size={14} />}
                       </div>
                       <span className="text-sm font-medium text-[var(--color-text)] truncate max-w-[250px]">{project.original_input}</span>
-                    </Link>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full w-fit ${statusConfig[project.status!]?.bg || 'bg-gray-50'} ${statusConfig[project.status!]?.color || 'text-gray-600'}`}>
                         {statusConfig[project.status!]?.label || project.status}
                       </span>
-                      {project.is_retry && (
-                        <span className="text-[10px] text-blue-600 font-bold px-2 py-0.5 rounded bg-blue-100 border border-blue-200">
-                          RETRY
-                        </span>
-                      )}
-                      {project.duplicate_warning && (
-                        <span className="text-[10px] text-orange-600 font-bold px-2 py-0.5 rounded bg-orange-100 border border-orange-200">
-                          DUPLICATE WARNING
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-[var(--color-text-muted)] hidden md:table-cell">
@@ -178,9 +174,7 @@ export default function ProjectsPage() {
                     >
                       <Trash2 size={16} />
                     </button>
-                    <Link href={`/projects/${project.id}`}>
-                      <ArrowRight size={16} className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors" />
-                    </Link>
+                    <ArrowRight size={16} className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors" />
                   </td>
                 </tr>
               ))}

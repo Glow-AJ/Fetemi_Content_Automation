@@ -75,6 +75,18 @@ export default function NewContentPage() {
     // -- Validation --
     if (mode === 'idea') {
       const trimmedIdea = idea.trim();
+      
+      // Check if idea contains a URL (regex for common URL patterns)
+      const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[^\s]+\.[a-z]{2,})/gi;
+      if (urlPattern.test(trimmedIdea)) {
+        setError({
+          what: 'URLs are not allowed in the idea field.',
+          why: 'We detected a link or domain in your text. The "Idea" field is for raw text descriptions only.',
+          nextStep: 'Please remove any URLs from your text, or switch to the "Submit a URL" tab if you want us to analyze a specific link.',
+        });
+        return;
+      }
+
       if (trimmedIdea.length < 20) {
         setError({
           what: 'Your content idea is too short.',

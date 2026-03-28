@@ -14,8 +14,8 @@ export default function AppLayout({
         <SidebarWrapper />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Navbar />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-10 custom-scrollbar">
-            <div className="max-w-[1700px] mx-auto w-full px-2 lg:px-4">
+          <main className="flex-1 overflow-y-auto p-4 lg:p-10 custom-scrollbar relative">
+            <div className="max-w-full mx-auto w-full px-2 lg:px-6">
               {children}
             </div>
           </main>
