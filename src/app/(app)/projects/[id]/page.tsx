@@ -871,7 +871,7 @@ export default function ProjectDetailPage() {
                     </div>
 
                     {expandedSections.article && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[1fr,420px] gap-12 items-start animate-in fade-in duration-300 w-full">
+                      <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-12 items-start animate-in fade-in duration-300 w-full">
                         {/* Editor Main Content - EXPANSIVE */}
                         <div className="min-w-0">
                           <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-visible shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
@@ -1056,7 +1056,7 @@ export default function ProjectDetailPage() {
                                </div>
 
                                 {expandedSections[platformKey] && (
-                                 <div className="grid grid-cols-1 lg:grid-cols-[1fr,420px] gap-12 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+                                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-12 items-start animate-in fade-in slide-in-from-top-4 duration-300">
                                     <div className="min-w-0">
                                        <div className="bg-white border border-zinc-100 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl shadow-zinc-200/50 min-h-[400px]">
                                           {viewModes[platformKey] === 'view' ? (
