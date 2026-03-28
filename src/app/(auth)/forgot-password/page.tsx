@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createClient();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/set-password`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://fetemi-content-automation.vercel.app'}/set-password`,
       });
       if (resetError) {
         setError(resetError.message);

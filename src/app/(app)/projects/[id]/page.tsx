@@ -28,7 +28,8 @@ import {
   schedulePostAction,
   cancelScheduleAction,
   markAsPostedAction,
-  getNewsletterRecipientsAction
+  getNewsletterRecipientsAction,
+  markJobAsPublishedAction
 } from '@/app/actions/content';
 import { Modal } from '@/components/ui/Modal';
 import { RichTextEditor } from '@/components/ui/Editor';
@@ -41,6 +42,7 @@ const phases = [
   { key: 'drafting', label: 'Drafting' },
   { key: 'awaiting_review', label: 'Review' },
   { key: 'adapting', label: 'Adaptation' },
+  { key: 'ready_to_publish', label: 'Ready' },
   { key: 'published', label: 'Published' },
 ];
 
@@ -208,6 +210,30 @@ export default function ProjectDetailPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [id, user, supabase]);
+  
+  // Auto-sync job status to 'published' when all relevant platform posts are live
+  useEffect(() => {
+    if (!job || job.status !== 'ready_to_publish') return;
+    
+    // Core platforms: LinkedIn and Email
+    const relevantPosts = posts.filter(p => (p.platform === 'linkedin' || p.platform === 'email') && p.status !== 'failed');
+    if (relevantPosts.length > 0 && relevantPosts.every(p => p.status === 'published')) {
+      const syncStatus = async () => {
+        setIsUpdating(true);
+        try {
+          // Trigger the job status update
+          await markJobAsPublishedAction(job.id);
+          // Optimistic local update for zero-latency UI feedback
+          setJob(prev => prev ? { ...prev, status: 'published' } : null);
+        } catch (err) {
+          console.error('[Pipeline Status] Failed to sync job status to published:', err);
+        } finally {
+          setIsUpdating(false);
+        }
+      };
+      syncStatus();
+    }
+  }, [posts, job]);
 
 
   const handleSelectClick = (draft: Draft, fromList: boolean = false) => {
@@ -367,7 +393,7 @@ export default function ProjectDetailPage() {
 
   // Logic Helpers
   const handleRevisionSubmit = async () => {
-    if (!job || !revisionNote || !user) return;
+    if (!job || !user) return;
     
     try {
       setIsUpdating(true);
@@ -382,7 +408,7 @@ export default function ProjectDetailPage() {
             job_id: job.id,
             user_id: user.id,
             user_email: user.email,
-            feedback: revisionNote
+            feedback: revisionNote || 'No specific feedback provided.'
           })
         });
       }
@@ -520,8 +546,21 @@ export default function ProjectDetailPage() {
               <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Pipeline Status</h3>
               <div className="space-y-0">
                 {phases.map((phase, i) => {
-                  const isDone = i < currentPhaseIndex || job.status === 'published';
-                  const isCurrent = i === currentPhaseIndex && job.status !== 'published';
+                  const isPublished = job.status === 'published';
+                  const isReady = job.status === 'ready_to_publish';
+                  
+                  // A phase is done if:
+                  // 1. We are past it in the sequence
+                  // 2. OR the whole job is published
+                  // 3. OR it's the 'Ready' phase and the status IS published
+                  // 4. OR it's the 'Adaptation' phase and the status is 'ready_to_publish' or 'published'
+                  let isDone = i < currentPhaseIndex || isPublished;
+                  
+                  if (phase.key === 'adapting' && (isReady || isPublished)) isDone = true;
+                  if (phase.key === 'ready_to_publish' && isPublished) isDone = true;
+
+                  const isCurrent = (i === currentPhaseIndex && !isPublished) || 
+                                   (phase.key === 'ready_to_publish' && isReady);
                   const isFailed = job.status === 'failed' && i === currentPhaseIndex;
 
                   return (
@@ -1274,7 +1313,7 @@ export default function ProjectDetailPage() {
                 variant="primary" 
                 className="flex-1 font-black uppercase tracking-widest text-xs h-12"
                 onClick={handleRevisionSubmit}
-                disabled={!revisionNote.trim() || isUpdating}
+                disabled={isUpdating}
                 loading={isUpdating}
               >
                 Trigger AI Fix

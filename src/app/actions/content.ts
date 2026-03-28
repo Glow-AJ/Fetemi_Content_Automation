@@ -381,6 +381,22 @@ export async function deleteJobAction(jobId: string) {
 }
 
 /**
+ * Status Sync - Mark a job as fully published once platforms are complete
+ */
+export async function markJobAsPublishedAction(jobId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('content_jobs')
+    .update({ 
+      status: 'published',
+      published_at: new Date().toISOString()
+    })
+    .eq('id', jobId);
+
+  return { success: !error, error: error?.message };
+}
+
+/**
  * Retry Intake - Re-trigger webhook for stuck jobs
  */
 export async function retryIntakeAction(jobId: string) {

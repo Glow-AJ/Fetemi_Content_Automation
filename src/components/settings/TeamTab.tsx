@@ -164,8 +164,8 @@ export function TeamTab() {
                     </p>
                   </div>
                 </div>
-                <span className="px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest bg-orange-50 text-orange-600 border border-orange-100">
-                  Pending
+                <span className="px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest bg-orange-50 text-orange-600 border border-orange-100 italic transition-all hover:scale-105">
+                  Pending Invitation
                 </span>
               </div>
             ))}
