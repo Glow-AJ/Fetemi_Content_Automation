@@ -369,20 +369,38 @@ export default function ProjectDetailPage() {
 
   // Logic Helpers
   const handleRevisionSubmit = async () => {
-    if (!job || !revisionNote) return;
+    if (!job || !revisionNote || !user) return;
     
     try {
       setIsUpdating(true);
+      
+      // 1. Call n8n Revision Webhook
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_REVISION;
+      if (webhookUrl && webhookUrl !== 'placeholder') {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: job.id,
+            user_id: user.id,
+            user_email: user.email,
+            feedback: revisionNote
+          })
+        });
+      }
+
+      // 2. Update Database State
       const res = await regenerateDraftsAction(job.id, revisionNote);
       if (res.success) {
         setShowRevisionModal(false);
         setRevisionNote('');
-        setActionStatus({ message: 'AI Revision triggered successfully!', type: 'success' });
+        setActionStatus({ message: 'Revision request sent to AI!', type: 'success' });
       } else {
         setActionStatus({ message: res.error || 'Failed to request revision', type: 'error' });
       }
     } catch (err) {
       console.error('Revision error:', err);
+      setActionStatus({ message: 'Failed to connect to revision pipeline', type: 'error' });
     } finally {
       setIsUpdating(false);
     }
@@ -813,39 +831,45 @@ export default function ProjectDetailPage() {
               {selectedDraft && (
                 <>
                   {/* Article Editor */}
-                  <div className="section-container">
-                    <div className="flex items-center justify-between mb-8 group">
-                        <div className="flex items-center gap-4">
-                          <button 
-                            onClick={() => toggleSection('article')}
-                            className="p-3 bg-zinc-900 rounded-2xl text-white shadow-lg hover:bg-orange-600 transition-colors"
-                          >
-                            <FileText size={24} className={expandedSections.article ? '' : 'opacity-50'} />
-                          </button>
+                  <div className="section-container border-b border-zinc-50 pb-16">
+                    <div 
+                      onClick={() => toggleSection('article')}
+                      className="flex items-center justify-between mb-8 group cursor-pointer hover:bg-zinc-50/50 p-4 -mx-4 rounded-3xl transition-colors"
+                    >
+                        <div className="flex items-center gap-6">
+                          <div className={`p-4 rounded-2xl text-white shadow-xl transition-all duration-500 scale-110 ${expandedSections.article ? 'bg-zinc-900 rotate-0' : 'bg-zinc-400 -rotate-12 opacity-50'}`}>
+                            <FileText size={28} />
+                          </div>
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] bg-orange-100/50 px-2 py-0.5 rounded leading-none">Draft Editor</span>
-                              <span className="text-xs text-zinc-400 font-bold uppercase tracking-tighter">Round #{selectedDraft.revision_round || 0}</span>
-                              {!expandedSections.article && <span className="text-[10px] font-bold text-zinc-400 uppercase ml-2">(Collapsed)</span>}
+                            <div className="flex items-center gap-3 mb-1.5">
+                              <span className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] bg-orange-100/80 px-2.5 py-1 rounded leading-none shadow-sm">Draft Editor</span>
+                              <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest bg-zinc-100 px-2 py-1 rounded">Round #{selectedDraft.revision_round || 0}</span>
                             </div>
-                            <h2 className="text-3xl font-black text-zinc-900 leading-tight">{selectedDraft.angle || 'Article Draft'}</h2>
+                            <h2 className={`text-4xl font-black transition-all ${expandedSections.article ? 'text-zinc-900' : 'text-zinc-300'}`}>
+                              {selectedDraft.angle || 'Article Draft'}
+                            </h2>
                           </div>
                         </div>
 
-                      <div className="flex items-center bg-zinc-100 p-1 rounded-xl shadow-inner">
-                        <button 
-                          onClick={() => setViewMode('article', 'view')}
-                          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-black transition-all ${viewModes.article === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                        >
-                          <Eye size={14} /> VIEW
-                        </button>
-                        <button 
-                          onClick={() => setViewMode('article', 'edit')}
-                          className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-black transition-all ${viewModes.article === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'}`}
-                        >
-                          <Edit3 size={14} /> EDIT
-                        </button>
-                      </div>
+                        <div className="flex items-center gap-4">
+                          <div className={`transition-transform duration-500 ${expandedSections.article ? 'rotate-180' : 'rotate-0'}`}>
+                            <ChevronDown size={24} className="text-zinc-300" />
+                          </div>
+                          <div className="flex items-center bg-zinc-100 p-1.5 rounded-2xl shadow-inner" onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => setViewMode('article', 'view')}
+                              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all ${viewModes.article === 'view' ? 'bg-white text-zinc-900 shadow-md' : 'text-zinc-500 hover:text-zinc-700'}`}
+                            >
+                              <Eye size={14} /> VIEW
+                            </button>
+                            <button 
+                              onClick={() => setViewMode('article', 'edit')}
+                              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black transition-all ${viewModes.article === 'edit' ? 'bg-white text-zinc-900 shadow-md' : 'text-zinc-500 hover:text-zinc-700'}`}
+                            >
+                              <Edit3 size={14} /> EDIT
+                            </button>
+                          </div>
+                        </div>
                     </div>
 
                     {expandedSections.article && (
@@ -982,46 +1006,63 @@ export default function ProjectDetailPage() {
                           const platformKey = platform === 'email' ? 'newsletter' : platform;
 
                           return (
-                            <div key={platform} id={`section-${platform}`} className="section-container">
-                               <div className="flex items-center justify-between mb-8 group">
-                                  <div className="flex items-center gap-4">
-                                     <button 
-                                       onClick={() => toggleSection(platformKey)}
-                                       className={`p-2.5 rounded-xl text-white shadow-lg transition-all hover:scale-110 ${
-                                         platform === 'linkedin' ? 'bg-[#0077b5]' : 
-                                         platform === 'twitter' ? 'bg-zinc-900' : 'bg-orange-500'
-                                       }`}
-                                     >
-                                        <Icon size={20} className={expandedSections[platformKey] ? '' : 'opacity-50'} />
-                                     </button>
-                                     <h4 className="text-xl font-black text-zinc-900 capitalize">
-                                       {platform === 'email' ? 'Newsletter' : platform} Version
-                                       {!expandedSections[platformKey] && <span className="text-[10px] font-bold text-zinc-400 uppercase ml-2 tracking-widest">(Collapsed)</span>}
-                                     </h4>
+                            <div key={platform} id={`section-${platform}`} className="section-container border-b border-zinc-50 pb-20 last:border-0">
+                               <div 
+                                  onClick={() => toggleSection(platformKey)}
+                                  className="flex items-center justify-between mb-8 group cursor-pointer hover:bg-zinc-50/50 p-4 -mx-4 rounded-3xl transition-colors"
+                               >
+                                  <div className="flex items-center gap-6">
+                                     <div className={`p-3.5 rounded-2xl text-white shadow-xl transition-all duration-500 scale-110 ${
+                                       expandedSections[platformKey] ? (
+                                         platform === 'linkedin' ? 'bg-[#0077b5] rotate-0' : 
+                                         platform === 'twitter' ? 'bg-zinc-900 rotate-0' : 'bg-orange-500 rotate-0'
+                                       ) : 'bg-zinc-400 -rotate-12 opacity-50'
+                                     }`}>
+                                        <Icon size={24} />
+                                     </div>
+                                     <div>
+                                       <div className="flex items-center gap-3 mb-1.5">
+                                         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] bg-zinc-100 px-2.5 py-1 rounded leading-none shadow-sm">Platform Adaptation</span>
+                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border border-current/10 ${
+                                            post.status === 'published' ? 'bg-green-100 text-green-600' : 
+                                            post.status === 'scheduled' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                                         }`}>
+                                            {post.status}
+                                         </span>
+                                       </div>
+                                       <h4 className={`text-3xl font-black capitalize transition-all ${expandedSections[platformKey] ? 'text-zinc-900' : 'text-zinc-300'}`}>
+                                         {platform === 'email' ? 'Newsletter' : platform} Version
+                                       </h4>
+                                     </div>
                                   </div>
                                   
-                                  <div className="flex items-center bg-zinc-100 p-1 rounded-xl">
-                                     <button 
-                                       onClick={() => setViewMode(platformKey, 'view')}
-                                       className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${viewModes[platformKey] === 'view' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
-                                     >
-                                       VIEW
-                                     </button>
-                                     <button 
-                                       onClick={() => setViewMode(platformKey, 'edit')}
-                                       className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${viewModes[platformKey] === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
-                                     >
-                                       EDIT
-                                     </button>
+                                  <div className="flex items-center gap-4">
+                                     <div className={`transition-transform duration-500 ${expandedSections[platformKey] ? 'rotate-180' : 'rotate-0'}`}>
+                                       <ChevronDown size={24} className="text-zinc-300" />
+                                     </div>
+                                     <div className="flex items-center bg-zinc-100 p-1.5 rounded-2xl shadow-inner" onClick={(e) => e.stopPropagation()}>
+                                        <button 
+                                          onClick={() => setViewMode(platformKey, 'view')}
+                                          className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${viewModes[platformKey] === 'view' ? 'bg-white text-zinc-900 shadow-md' : 'text-zinc-500 hover:text-zinc-700'}`}
+                                        >
+                                          VIEW
+                                        </button>
+                                        <button 
+                                          onClick={() => setViewMode(platformKey, 'edit')}
+                                          className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all ${viewModes[platformKey] === 'edit' ? 'bg-white text-zinc-900 shadow-md' : 'text-zinc-500 hover:text-zinc-700'}`}
+                                        >
+                                          EDIT
+                                        </button>
+                                     </div>
                                   </div>
                                </div>
 
-                               {expandedSections[platformKey] && (
-                                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 animate-in fade-in slide-in-from-top-4 duration-300">
-                                    <div className="lg:col-span-3">
-                                       <div className="bg-white border-2 border-zinc-100 rounded-[2.5rem] p-10 lg:p-16 shadow-xl shadow-zinc-200/50 min-h-[400px]">
+                                {expandedSections[platformKey] && (
+                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
+                                    <div className="lg:col-span-10 order-1">
+                                       <div className="bg-white border border-zinc-100 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl shadow-zinc-200/50 min-h-[400px]">
                                           {viewModes[platformKey] === 'view' ? (
-                                            <div className="max-w-2xl mx-auto prose prose-zinc prose-base selection:bg-orange-100 font-medium leading-relaxed">
+                                            <div className="max-w-none prose prose-zinc prose-lg selection:bg-orange-100 font-medium leading-relaxed">
                                               <ReactMarkdown>{contents[platformKey] || post.content || ''}</ReactMarkdown>
                                             </div>
                                           ) : (
@@ -1035,7 +1076,7 @@ export default function ProjectDetailPage() {
                                        </div>
                                     </div>
 
-                                    <div className="lg:col-span-1">
+                                    <div className="lg:col-span-2 order-2">
                                        <div className="sticky top-12 space-y-6">
                                           <Card className="border-none bg-zinc-50 p-6 rounded-3xl">
                                              <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6">Status & Controls</h5>
