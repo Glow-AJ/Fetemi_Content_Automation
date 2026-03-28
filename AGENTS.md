@@ -167,6 +167,12 @@ All with RLS enabled. Realtime replication enabled.
   - Refactored `getTeamDataAction` to correctly identify unconfirmed invited users and display them as "Pending Join" in the UI.
   - Destructured missing props in platform modals to fix "Cannot find name draftImageUrl" errors.
   - Verified 100% type safety across projects and actions via `tsc --noEmit`.
+- **Customizations & Skill Installation**:
+  - Installed the `doc-coauthoring` skill for structured document co-authoring workflows.
+  - Transitioned the app from mock notifications to a real-time Supabase system.
+  - Implemented click-outside dropdown behavior and "Mark all read" in the `Navbar`.
+  - Hidden the "Platforms" tab in the Settings page for a cleaner UI.
+  - Verified stability with a final error-free `tsc` run.
 ### Next Steps
 1. **n8n Workflow Development**: Build the 6 core workflows (Intake, SEO, Drafting, Adaptation, Publishing, Schedule Cron) using the standardized server-action payloads.
 2. **Platform API Integration**: Finalize LinkedIn and Email API connections in n8n.
