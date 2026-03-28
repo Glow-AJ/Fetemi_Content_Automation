@@ -38,12 +38,10 @@ import type { Job, Draft, PlatformPost, SEOBrief } from '@/types/database';
 const phases = [
   { key: 'submitted', label: 'Intake' },
   { key: 'researching', label: 'SEO' },
-  { key: 'seo_research', label: 'Briefing' },
   { key: 'drafting', label: 'Drafting' },
   { key: 'awaiting_review', label: 'Review' },
-  { key: 'adapting', label: 'Social' },
-  { key: 'ready_to_publish', label: 'Schedule' },
-  { key: 'published', label: 'Send' },
+  { key: 'adapting', label: 'Adaptation' },
+  { key: 'published', label: 'Published' },
 ];
 
 
@@ -875,7 +873,7 @@ export default function ProjectDetailPage() {
                     {expandedSections.article && (
                       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
                         {/* Editor Main Content - WIDER */}
-                        <div className="lg:col-span-8 order-1">
+                        <div className="lg:col-span-10 order-1">
                           <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
                             {selectedDraft.image_url && (
                               <div className="w-full h-[400px] bg-zinc-100 overflow-hidden relative group border-b border-zinc-100">
@@ -898,9 +896,9 @@ export default function ProjectDetailPage() {
                           </div>
                         </div>
 
-                        {/* Editor Sidebar - RIGHT ALIGNED & FLOATING & WIDER */}
-                        <aside className="lg:col-span-4 order-2 self-start">
-                          <div className="sticky top-24 space-y-6 pb-20">
+                        {/* Editor Sidebar - RIGHT ALIGNED & FLOATING */}
+                        <aside className="lg:col-span-2 order-2 self-start">
+                          <div className="sticky top-20 space-y-6 pb-20">
                              <Card className="border border-zinc-100 bg-zinc-50/50 p-6 rounded-3xl shadow-sm">
                                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
                                  <div className="space-y-6">
@@ -1059,7 +1057,7 @@ export default function ProjectDetailPage() {
 
                                 {expandedSections[platformKey] && (
                                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-top-4 duration-300">
-                                    <div className="lg:col-span-8 order-1">
+                                    <div className="lg:col-span-10 order-1">
                                        <div className="bg-white border border-zinc-100 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl shadow-zinc-200/50 min-h-[400px]">
                                           {viewModes[platformKey] === 'view' ? (
                                             <div className="max-w-none prose prose-zinc prose-lg selection:bg-orange-100 font-medium leading-relaxed">
@@ -1076,8 +1074,8 @@ export default function ProjectDetailPage() {
                                        </div>
                                     </div>
 
-                                    <div className="lg:col-span-4 order-2 self-start text-left">
-                                       <div className="sticky top-24 space-y-6 pb-20">
+                                    <div className="lg:col-span-2 order-2 self-start">
+                                       <div className="sticky top-20 space-y-6 pb-20">
                                           <Card className="border-none bg-zinc-50 p-6 rounded-3xl">
                                              <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6">Status & Controls</h5>
                                              <div className="space-y-4">
