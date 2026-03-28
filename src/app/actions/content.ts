@@ -269,11 +269,16 @@ export async function updatePostContentAction(postId: string, content: string) {
 /**
  * Publishing - LinkedIn or Email only
  */
-export async function publishNowAction(jobId: string, platform: 'linkedin' | 'email', postId: string) {
+export async function publishNowAction(jobId: string, platform: 'linkedin' | 'email', postId: string, customImageUrl?: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) return { success: false, error: 'User not authenticated' };
+
+  // 1. If custom image provided, update the post record first
+  if (customImageUrl) {
+    await supabase.from('platform_posts').update({ custom_image_url: customImageUrl }).eq('id', postId);
+  }
 
   const webhookUrl = platform === 'linkedin' 
     ? process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH_LINKEDIN 
@@ -288,7 +293,8 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
           post_id: postId,
           job_id: jobId, 
           user_id: user.id,
-          user_email: user.email
+          user_email: user.email,
+          custom_image_url: customImageUrl || null
         }),
       });
 
@@ -313,13 +319,14 @@ export async function publishNowAction(jobId: string, platform: 'linkedin' | 'em
 /**
  * Scheduling
  */
-export async function schedulePostAction(postId: string, scheduledTime: string) {
+export async function schedulePostAction(postId: string, scheduledTime: string, customImageUrl?: string) {
   const supabase = await createClient();
   const { error } = await supabase
     .from('platform_posts')
     .update({ 
       publish_at: scheduledTime,
-      status: 'scheduled'
+      status: 'scheduled',
+      custom_image_url: customImageUrl || null
     })
     .eq('id', postId);
 

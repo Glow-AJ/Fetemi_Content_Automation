@@ -314,25 +314,20 @@ export default function NewContentPage() {
           )}
 
           {/* ── Actions ── */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
-            <Button
-              type="submit"
-              variant="primary"
-              loading={isSubmitting}
-              disabled={isSubmitting || urlClassification.rejected}
-              id="submit-content-button"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Submitting…
-                </>
-              ) : (
-                'Submit Content'
-              )}
-            </Button>
-          </div>
+          {!showDuplicateWarning && (
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={isSubmitting}
+                disabled={isSubmitting || urlClassification.rejected}
+                id="submit-content-button"
+              >
+                Submit Content
+              </Button>
+            </div>
+          )}
         </form>
       </Card>
     </div>

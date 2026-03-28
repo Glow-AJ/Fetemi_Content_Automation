@@ -1,19 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { AlertCircle, Eye, Rocket } from 'lucide-react';
+import { AlertCircle, Eye, Rocket, Upload, X, ImageIcon, Loader2 } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 interface PublishConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (customImageUrl?: string) => void;
   onViewContent?: () => void;
   platform: 'linkedin' | 'email' | 'newsletter';
   isOverview?: boolean;
   loading?: boolean;
 }
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export function PublishConfirmModal({ 
   isOpen, 
@@ -24,7 +27,77 @@ export function PublishConfirmModal({
   isOverview = false,
   loading = false
 }: PublishConfirmModalProps) {
+  const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const platformName = platform === 'email' ? 'Newsletter' : platform.charAt(0).toUpperCase() + platform.slice(1);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError('File too large. Max limit is 5MB.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (JPG/PNG).');
+      return;
+    }
+
+    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearFile = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleConfirmInternal = async () => {
+    if (!selectedFile) {
+      onConfirm();
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('platform_media')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('platform_media')
+        .getPublicUrl(filePath);
+
+      onConfirm(publicUrl);
+    } catch (err: any) {
+      console.error('Upload failed:', err);
+      setUploadError('Upload failed. Please try again or use default image.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <Modal
@@ -44,28 +117,76 @@ export function PublishConfirmModal({
           </div>
         </div>
 
+        {/* Custom Image Upload Section */}
+        <div className="p-5 rounded-2xl bg-zinc-50 border border-zinc-200 border-dashed">
+          <div className="flex items-center justify-between mb-4">
+             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Custom Graphic (Optional)</label>
+             <span className="text-[9px] font-bold text-zinc-400">MAX 5MB</span>
+          </div>
+
+          {previewUrl ? (
+            <div className="relative rounded-xl overflow-hidden aspect-video bg-zinc-200 border border-zinc-200 group">
+              <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+              <button 
+                onClick={handleClearFile}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-all"
+              >
+                <X size={14} />
+              </button>
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                 <p className="text-[10px] font-black text-white uppercase tracking-widest">Using Custom Image</p>
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full aspect-video rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center justify-center gap-2 hover:border-orange-500/50 hover:bg-orange-50/30 transition-all group"
+            >
+              <div className="p-3 rounded-full bg-white text-zinc-400 group-hover:text-orange-500 shadow-sm transition-all">
+                 <Upload size={20} />
+              </div>
+              <p className="text-xs font-bold text-zinc-500 group-hover:text-zinc-600">Upload custom post image</p>
+            </button>
+          )}
+
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={handleFileSelect} 
+          />
+
+          {uploadError && (
+             <div className="mt-3 flex items-center gap-2 text-red-600">
+                <AlertCircle size={14} />
+                <p className="text-[10px] font-bold uppercase tracking-tight">{uploadError}</p>
+             </div>
+          )}
+        </div>
+
         <div className="space-y-3">
-          <p className="text-sm text-zinc-600 leading-relaxed">
-            Are you sure you want to publish this content now? This action will trigger the n8n automation for immediate delivery.
+          <p className="text-sm text-zinc-600 leading-relaxed font-medium">
+            Confirming this will trigger the n8n automation for immediate delivery on {platformName}.
           </p>
           
           {isOverview && (
             <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-start gap-3">
               <AlertCircle size={16} className="text-zinc-400 mt-0.5" />
-              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider leading-normal">
-                You are currently in overview mode. We recommend reviewing the content in the workspace before publishing.
+              <p className="text-[10px] text-zinc-500 font-black uppercase tracking-wider leading-normal">
+                Reviewing content in the workspace first is highly recommended.
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 pt-2">
           {isOverview && onViewContent && (
             <Button 
               variant="outline" 
               onClick={onViewContent}
-              disabled={loading}
-              className="w-full h-12 font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2"
+              disabled={loading || uploading}
+              className="w-full h-12 font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 border-zinc-200"
             >
               <Eye size={14} /> View Content First
             </Button>
@@ -75,18 +196,18 @@ export function PublishConfirmModal({
             <Button 
               variant="secondary" 
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || uploading}
               className="flex-1 h-12 font-bold"
             >
               Cancel
             </Button>
             <Button 
               variant="primary" 
-              onClick={onConfirm}
-              loading={loading}
-              className="flex-1 h-12 font-black uppercase tracking-widest text-[10px]"
+              onClick={handleConfirmInternal}
+              loading={loading || uploading}
+              className="flex-1 h-12 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-orange-100"
             >
-              Confirm & Publish
+              {uploading ? 'Uploading...' : 'Confirm & Publish'}
             </Button>
           </div>
         </div>

@@ -268,10 +268,10 @@ export default function ProjectDetailPage() {
     setScheduleModalOpen(true);
   };
 
-  const handleScheduleConfirm = async (scheduledTime: string) => {
+  const handleScheduleConfirm = async (scheduledTime: string, customImageUrl?: string) => {
     if (!schedulingPostId) return;
     setIsUpdating(true);
-    const res = await schedulePostAction(schedulingPostId, scheduledTime);
+    const res = await schedulePostAction(schedulingPostId, scheduledTime, customImageUrl);
     setIsUpdating(false);
     if (res.success) {
       setScheduleModalOpen(false);
@@ -281,11 +281,11 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const handlePublish = async (platform: 'linkedin' | 'email', postId: string) => {
+  const handlePublish = async (platform: 'linkedin' | 'email', postId: string, customImageUrl?: string) => {
     setPublishingInfo({ platform, postId });
     setInFlightPublishing(prev => [...prev, postId]);
     
-    const res = await publishNowAction(id as string, platform, postId);
+    const res = await publishNowAction(id as string, platform, postId, customImageUrl);
     setShowPublishModal(false);
 
     if (!res.success) {
@@ -1061,16 +1061,17 @@ export default function ProjectDetailPage() {
                                  </div>
                                )}
                             </div>
-                          );
+                          )
                         })}
                       </div>
                     </div>
                   )}
                 </>
-              </div>
-            )}
-          </main>
-        </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
 
 
       {/* Job Errors Display */}
@@ -1250,7 +1251,7 @@ export default function ProjectDetailPage() {
         <PublishConfirmModal
           isOpen={showPublishModal}
           onClose={() => setShowPublishModal(false)}
-          onConfirm={() => handlePublish(publishingInfo.platform, publishingInfo.postId)}
+          onConfirm={(url) => handlePublish(publishingInfo.platform, publishingInfo.postId, url)}
           onViewContent={() => {
             setShowPublishModal(false);
             const adaptedDraft = activeDrafts.find(d => d.selected);
@@ -1316,11 +1317,6 @@ export default function ProjectDetailPage() {
           <Button className="w-full font-bold" onClick={() => setShowRecipientsModal(false)}>Close Report</Button>
         </div>
       </Modal>
-    ) : (
-      <div className="flex items-center justify-center min-h-[600px]">
-        <Loader2 className="animate-spin text-orange-500" size={48} />
-      </div>
-    )}
-  </div>
-);
+    </div>
+  );
 }
