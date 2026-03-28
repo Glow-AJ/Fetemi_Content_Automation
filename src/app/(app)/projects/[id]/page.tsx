@@ -871,7 +871,7 @@ export default function ProjectDetailPage() {
                     </div>
 
                     {expandedSections.article && (
-                      <div className="flex flex-col lg:flex-row gap-8 items-start animate-in fade-in duration-300 w-full px-4 lg:px-10">
+                      <div className="flex flex-col lg:flex-row gap-12 items-start animate-in fade-in duration-300 w-full">
                         {/* Editor Main Content - EXPANSIVE */}
                         <div className="flex-1 min-w-0">
                           <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-visible shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
