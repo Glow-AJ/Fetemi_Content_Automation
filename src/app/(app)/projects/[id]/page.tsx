@@ -871,7 +871,7 @@ export default function ProjectDetailPage() {
                     </div>
 
                     {expandedSections.article && (
-                      <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-12 animate-in fade-in duration-300 w-full">
+                      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-12 animate-in fade-in duration-300 w-full">
                         {/* Editor Main Content - EXPANSIVE */}
                         <div className="min-w-0">
                           <div className="bg-white border border-zinc-100 rounded-[2.5rem] overflow-visible shadow-2xl shadow-zinc-200/50 flex flex-col min-h-[700px]">
@@ -896,8 +896,8 @@ export default function ProjectDetailPage() {
                           </div>
                         </div>
 
-                        {/* Editor Sidebar - PERMANENT 420px & FLOATING */}
-                        <aside className="w-full lg:w-[420px] shrink-0">
+                        {/* Editor Sidebar - PERMANENT 360px & FLOATING */}
+                        <aside className="w-full lg:w-[360px] shrink-0">
                           <div className="sticky top-24 space-y-6 pb-20 z-50">
                              <Card className="border border-zinc-100 bg-zinc-50/50 p-6 rounded-3xl shadow-sm">
                                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6">Metrics & Actions</h3>
@@ -1056,7 +1056,7 @@ export default function ProjectDetailPage() {
                                </div>
 
                                 {expandedSections[platformKey] && (
-                                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-12 animate-in fade-in slide-in-from-top-4 duration-300">
+                                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-12 animate-in fade-in slide-in-from-top-4 duration-300">
                                     <div className="min-w-0">
                                        <div className="bg-white border border-zinc-100 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl shadow-zinc-200/50 min-h-[400px]">
                                           {viewModes[platformKey] === 'view' ? (
@@ -1074,7 +1074,7 @@ export default function ProjectDetailPage() {
                                        </div>
                                     </div>
 
-                                     <div className="w-full lg:w-[420px]">
+                                     <div className="w-full lg:w-[360px]">
                                         <div className="sticky top-24 space-y-6 pb-20 z-50">
                                           <Card className="border-none bg-zinc-50 p-6 rounded-3xl">
                                              <h5 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-6">Status & Controls</h5>
