@@ -284,11 +284,17 @@ export async function publishNowAction(
   
   if (!user) return { success: false, error: 'User not authenticated' };
 
-  // 1. Update the post record with selection and URL
-  await supabase.from('platform_posts').update({ 
+  // 1. Update the post record with selection, URL and transition to 'publishing' status
+  const { error: updateError } = await supabase.from('platform_posts').update({ 
     image_selection: imageSelection,
-    custom_image_url: customImageUrl || null 
+    custom_image_url: customImageUrl || null,
+    status: 'publishing'
   }).eq('id', postId);
+
+  if (updateError) {
+    console.error('[Action:Publish] Failed to update post status to publishing:', updateError);
+    return { success: false, error: 'Could not initialize publishing state.' };
+  }
 
   const webhookUrl = platform === 'linkedin' 
     ? process.env.NEXT_PUBLIC_N8N_WEBHOOK_PUBLISH_LINKEDIN 
@@ -319,7 +325,9 @@ export async function publishNowAction(
       
       return { success: true };
     } catch (err) {
-      console.error('[Action] Publish webhook failed:', err);
+      console.error('[Action:Publish] Webhook trigger failed:', err);
+      // Revert status to ready_to_publish so user can retry
+      await supabase.from('platform_posts').update({ status: 'ready_to_publish' }).eq('id', postId);
       return { success: false, error: 'Failed to trigger publishing automation.' };
     }
   }

@@ -215,9 +215,19 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!job || job.status !== 'ready_to_publish') return;
     
-    // Core platforms: LinkedIn and Email
-    const relevantPosts = posts.filter(p => (p.platform === 'linkedin' || p.platform === 'email') && p.status !== 'failed');
-    if (relevantPosts.length > 0 && relevantPosts.every(p => p.status === 'published')) {
+    // Core platforms: LinkedIn and Email must BOTH be present and published
+    const linkedinPost = posts.find(p => p.platform === 'linkedin');
+    const emailPost = posts.find(p => p.platform === 'email');
+    
+    // Logic: If both exist, both must be published. If only one exists (unlikely in this pipeline), that one must be published.
+    // If BOTH exist, and only one is published, we DO NOT mark the job as published.
+    const hasLinkedIn = !!linkedinPost;
+    const hasEmail = !!emailPost;
+    
+    const isLinkedInDone = !hasLinkedIn || linkedinPost.status === 'published';
+    const isEmailDone = !hasEmail || emailPost.status === 'published';
+
+    if ((hasLinkedIn || hasEmail) && isLinkedInDone && isEmailDone) {
       const syncStatus = async () => {
         setIsUpdating(true);
         try {
@@ -849,13 +859,13 @@ export default function ProjectDetailPage() {
                                       size="sm" 
                                       className="h-8 text-[9px] font-black uppercase tracking-widest"
                                       loading={inFlightPublishing.includes(post.id)}
-                                      disabled={post.status === 'published' || post.status === 'scheduled' || inFlightPublishing.includes(post.id)}
+                                      disabled={['published', 'scheduled', 'publishing', 'scheduling'].includes(post.status || '') || inFlightPublishing.includes(post.id)}
                                       onClick={() => {
                                         setPublishingInfo({ platform: platform as 'linkedin' | 'email', postId: post.id });
                                         setShowPublishModal(true);
                                       }}
                                     >
-                                      {post.status === 'published' ? 'Sent' : post.status === 'scheduled' ? 'Scheduled' : 'Publish'}
+                                      {post.status === 'published' ? 'Sent' : post.status === 'scheduled' ? 'Scheduled' : post.status === 'publishing' ? 'Sending...' : 'Publish'}
                                     </Button>
                                   )}
                                 </div>
@@ -1163,10 +1173,10 @@ export default function ProjectDetailPage() {
                                                       size="sm" 
                                                       className="w-full h-10 text-[10px] font-black uppercase tracking-widest shadow-lg"
                                                       loading={inFlightPublishing.includes(post.id)}
-                                                      disabled={post.status === 'published' || inFlightPublishing.includes(post.id)}
+                                                      disabled={['published', 'scheduled', 'publishing', 'scheduling'].includes(post.status || '') || inFlightPublishing.includes(post.id)}
                                                       onClick={() => triggerPublishModal(post.platform as 'linkedin' | 'email', post.id)}
                                                     >
-                                                      {post.status === 'published' ? 'Published' : 'Publish Now'}
+                                                      {post.status === 'published' ? 'Published' : post.status === 'publishing' ? 'Publishing...' : 'Publish Now'}
                                                     </Button>
                                                     <div className="grid grid-cols-2 gap-2">
                                                       <Button 

@@ -700,6 +700,7 @@ export type Database = {
       platform_type: "linkedin" | "twitter" | "email"
       post_status:
         | "pending"
+        | "publishing"
         | "scheduled"
         | "ready_to_publish"
         | "published"
